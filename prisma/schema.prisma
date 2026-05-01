@@ -1,0 +1,41 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+}
+
+model TodoList {
+  id Int @id @default(autoincrement())
+  userId String 
+  title String
+  position  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  items TodoItem[]
+
+  @@index([userId])
+  @@index([userId, position])
+}
+
+
+model TodoItem {
+  id Int @id @default(autoincrement())
+  listId Int
+  list TodoList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  title String
+  position  Int
+  ccreatedAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isDone Boolean @default(false)
+
+  @@index([listId])
+  @@index([listId, position])
+  @@index([listId, isDone, position])
+}
