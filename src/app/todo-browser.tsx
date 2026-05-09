@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import {
   createTodoItem,
   createTodoList,
@@ -14,6 +14,7 @@ import { TodoPanel } from "@/app/todos/todo-panel";
 import type { TodoSnapshot } from "@/lib/todos/types";
 
 const TODO_SNAPSHOT_STORAGE_KEY = "todoster:snapshot:v1";
+const TODO_SYNC_QUEUE_STORAGE_KEY = "todoster:sync-queue:v1";
 const TODO_SESSION_MARKER_STORAGE_KEY = "todoster:browser-session:v1";
 const TODO_SESSION_TTL_MS = 30 * 60 * 1000;
 const TODO_SESSION_HEARTBEAT_MS = 30 * 1000;
@@ -23,6 +24,56 @@ type PersistenceResult = {
   error?: string;
   ok: boolean;
 };
+
+type SyncOperation =
+  | {
+      createdAt: string;
+      id: string;
+      payload: {
+        id: string;
+        position: number;
+        title: string;
+      };
+      type: "createTodoList";
+    }
+  | {
+      createdAt: string;
+      id: string;
+      payload: {
+        id: string;
+        listId: string;
+        position: number;
+        title: string;
+      };
+      type: "createTodoItem";
+    }
+  | {
+      createdAt: string;
+      id: string;
+      payload: {
+        id: string;
+        isDone: boolean;
+      };
+      type: "setTodoItemDone";
+    }
+  | {
+      createdAt: string;
+      id: string;
+      payload: {
+        id: string;
+        title: string;
+      };
+      type: "setTodoListTitle";
+    }
+  | {
+      createdAt: string;
+      id: string;
+      payload: {
+        id: string;
+        title: string;
+      };
+      type: "setTodoItemTitle";
+    };
 
 type TodoBrowserProps = {
   bootstrap: TodoSnapshot;
@@ -35,6 +86,10 @@ type BrowserSessionMarker = {
 
 function createBrowserId(prefix: "list" | "item") {
   return `${prefix}_${crypto.randomUUID()}`;
+}
+
+function createSyncOperationId() {
+  return `sync_${crypto.randomUUID()}`;
 }
 
 function validateTitle(title: string) {
@@ -114,6 +169,90 @@ function readStoredTodoSnapshot() {
   }
 }
 
+function isValidPosition(value: unknown) {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0;
+}
+
+function isNonEmptyString(value: unknown) {
+  return typeof value === "string" && value.length > 0;
+}
+
+function isSyncOperation(value: unknown): value is SyncOperation {
+  if (!isRecord(value) || !isNonEmptyString(value.id) || !isNonEmptyString(value.createdAt)) {
+    return false;
+  }
+
+  if (!isNonEmptyString(value.type) || !isRecord(value.payload)) {
+    return false;
+  }
+
+  switch (value.type) {
+    case "createTodoList":
+      return (
+        isNonEmptyString(value.payload.id) &&
+        isValidPosition(value.payload.position) &&
+        isNonEmptyString(value.payload.title)
+      );
+    case "createTodoItem":
+      return (
+        isNonEmptyString(value.payload.id) &&
+        isNonEmptyString(value.payload.listId) &&
+        isValidPosition(value.payload.position) &&
+        isNonEmptyString(value.payload.title)
+      );
+    case "setTodoItemDone":
+      return (
+        isNonEmptyString(value.payload.id) &&
+        typeof value.payload.isDone === "boolean"
+      );
+    case "setTodoListTitle":
+    case "setTodoItemTitle":
+      return (
+        isNonEmptyString(value.payload.id) &&
+        isNonEmptyString(value.payload.title)
+      );
+    default:
+      return false;
+  }
+}
+
+function readSyncQueue() {
+  const rawQueue = window.localStorage.getItem(TODO_SYNC_QUEUE_STORAGE_KEY);
+
+  if (!rawQueue) {
+    return [];
+  }
+
+  try {
+    const parsedQueue: unknown = JSON.parse(rawQueue);
+    return Array.isArray(parsedQueue) ? parsedQueue.filter(isSyncOperation) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeSyncQueue(queue: SyncOperation[]) {
+  window.localStorage.setItem(
+    TODO_SYNC_QUEUE_STORAGE_KEY,
+    JSON.stringify(queue),
+  );
+}
+
+async function dispatchSyncOperation(operation: SyncOperation) {
+  switch (operation.type) {
+    case "createTodoList":
+      return createTodoList(operation.payload);
+    case "createTodoItem":
+      return createTodoItem(operation.payload);
+    case "setTodoItemDone":
+      return persistTodoItemDone(operation.payload);
+    case "setTodoListTitle":
+      return persistTodoListTitle(operation.payload);
+    case "setTodoItemTitle":
+      return persistTodoItemTitle(operation.payload);
+  }
+}
+
 function isBrowserSessionMarker(value: unknown): value is BrowserSessionMarker {
   return (
     isRecord(value) &&
@@ -185,6 +324,7 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
     Record<string, string>
   >({});
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
+  const isDispatchingQueue = useRef(false);
 
   useEffect(() => {
     const now = Date.now();
@@ -245,15 +385,46 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
   const selectedList =
     snapshot.lists.find((list) => list.id === selectedListId) ?? null;
 
-  async function persistChange(command: Promise<PersistenceResult>) {
-    const result = await command;
-
-    if (result.ok) {
-      setSyncError("");
+  async function processSyncQueue() {
+    if (isDispatchingQueue.current) {
       return;
     }
 
-    setSyncError(getPersistenceErrorMessage(result));
+    isDispatchingQueue.current = true;
+
+    try {
+      while (true) {
+        const operation = readSyncQueue()[0];
+
+        if (!operation) {
+          setSyncError("");
+          return;
+        }
+
+      const result = await dispatchSyncOperation(operation);
+
+      if (result.ok) {
+        const nextQueue = readSyncQueue().filter(
+          (queuedOperation) => queuedOperation.id !== operation.id,
+        );
+        writeSyncQueue(nextQueue);
+          setSyncError("");
+          continue;
+      }
+
+      setSyncError(getPersistenceErrorMessage(result));
+        return;
+      }
+    } catch {
+      setSyncError("Could not save changes. Please try again.");
+    } finally {
+      isDispatchingQueue.current = false;
+    }
+  }
+
+  function enqueueSyncOperation(operation: SyncOperation) {
+    writeSyncQueue([...readSyncQueue(), operation]);
+    void processSyncQueue();
   }
 
   function handleCreateList(event: FormEvent<HTMLFormElement>) {
@@ -286,13 +457,16 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
     setSelectedListId(listId);
     setListTitle("");
     setListError("");
-    void persistChange(
-      createTodoList({
+    enqueueSyncOperation({
+      createdAt: now,
+      id: createSyncOperationId(),
+      payload: {
         id: listId,
         position,
         title: validation.title,
-      }),
-    );
+      },
+      type: "createTodoList",
+    });
   }
 
   function handleCreateItem(
@@ -345,14 +519,17 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
     }));
     setItemTitles((currentTitles) => ({ ...currentTitles, [listId]: "" }));
     setItemErrors((currentErrors) => ({ ...currentErrors, [listId]: "" }));
-    void persistChange(
-      createTodoItem({
+    enqueueSyncOperation({
+      createdAt: now,
+      id: createSyncOperationId(),
+      payload: {
         id: itemId,
         listId,
         position,
         title: validation.title,
-      }),
-    );
+      },
+      type: "createTodoItem",
+    });
   }
 
   function setTodoDone(listId: string, itemId: string, isDone: boolean) {
@@ -391,12 +568,15 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
         ),
       };
     });
-    void persistChange(
-      persistTodoItemDone({
+    enqueueSyncOperation({
+      createdAt: new Date().toISOString(),
+      id: createSyncOperationId(),
+      payload: {
         id: itemId,
         isDone,
-      }),
-    );
+      },
+      type: "setTodoItemDone",
+    });
   }
 
   function setTodoListTitle(listId: string, title: string) {
@@ -439,12 +619,15 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
       ...currentErrors,
       [listId]: "",
     }));
-    void persistChange(
-      persistTodoListTitle({
+    enqueueSyncOperation({
+      createdAt: new Date().toISOString(),
+      id: createSyncOperationId(),
+      payload: {
         id: listId,
         title: validation.title,
-      }),
-    );
+      },
+      type: "setTodoListTitle",
+    });
   }
 
   function setTodoItemTitle(listId: string, itemId: string, title: string) {
@@ -496,12 +679,15 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
       ...currentErrors,
       [itemId]: "",
     }));
-    void persistChange(
-      persistTodoItemTitle({
+    enqueueSyncOperation({
+      createdAt: new Date().toISOString(),
+      id: createSyncOperationId(),
+      payload: {
         id: itemId,
         title: validation.title,
-      }),
-    );
+      },
+      type: "setTodoItemTitle",
+    });
   }
 
   return (

@@ -106,13 +106,27 @@ export async function createTodoList(
   }
 
   try {
-    await prisma.todoList.create({
-      data: {
+    const existingList = await prisma.todoList.findUnique({
+      select: { userId: true },
+      where: { id: input.id },
+    });
+
+    if (existingList && existingList.userId !== TEMP_USER_ID) {
+      return validationError("List was not found.");
+    }
+
+    await prisma.todoList.upsert({
+      create: {
         id: input.id,
         position: input.position,
         title: titleValidation.title,
         userId: TEMP_USER_ID,
       },
+      update: {
+        position: input.position,
+        title: titleValidation.title,
+      },
+      where: { id: input.id },
     });
 
     return { ok: true };
@@ -157,6 +171,29 @@ export async function createTodoItem(
       return validationError("List was not found.");
     }
 
+    const existingItem = await prisma.todoItem.findFirst({
+      select: { id: true },
+      where: {
+        id: input.id,
+        list: {
+          userId: TEMP_USER_ID,
+        },
+      },
+    });
+
+    if (existingItem) {
+      await prisma.todoItem.update({
+        data: {
+          listId: input.listId,
+          position: input.position,
+          title: titleValidation.title,
+        },
+        where: { id: input.id },
+      });
+
+      return { ok: true };
+    }
+
     await prisma.todoItem.create({
       data: {
         id: input.id,
@@ -197,7 +234,9 @@ export async function setTodoItemDone(
       },
     });
 
-    return result.count === 1 ? { ok: true } : validationError("Todo was not found.");
+    return result.count === 1
+      ? { ok: true }
+      : validationError("Todo was not found.");
   } catch {
     return persistenceError();
   }
@@ -227,7 +266,9 @@ export async function setTodoListTitle(
       },
     });
 
-    return result.count === 1 ? { ok: true } : validationError("List was not found.");
+    return result.count === 1
+      ? { ok: true }
+      : validationError("List was not found.");
   } catch {
     return persistenceError();
   }
@@ -259,7 +300,9 @@ export async function setTodoItemTitle(
       },
     });
 
-    return result.count === 1 ? { ok: true } : validationError("Todo was not found.");
+    return result.count === 1
+      ? { ok: true }
+      : validationError("Todo was not found.");
   } catch {
     return persistenceError();
   }
