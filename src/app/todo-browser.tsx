@@ -130,6 +130,46 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
     setItemErrors((currentErrors) => ({ ...currentErrors, [listId]: "" }));
   }
 
+  function setTodoDone(listId: string, itemId: string, isDone: boolean) {
+    if (typeof isDone !== "boolean") {
+      return;
+    }
+
+    setSnapshot((currentSnapshot) => {
+      const targetList = currentSnapshot.lists.find(
+        (list) => list.id === listId,
+      );
+      const targetItem = targetList?.items.find((item) => item.id === itemId);
+
+      if (!targetList || !targetItem || targetItem.isDone === isDone) {
+        return currentSnapshot;
+      }
+
+      const now = new Date().toISOString();
+
+      return {
+        ...currentSnapshot,
+        lists: currentSnapshot.lists.map((list) =>
+          list.id === listId
+            ? {
+                ...list,
+                updatedAt: now,
+                items: list.items.map((item) =>
+                  item.id === itemId
+                    ? {
+                        ...item,
+                        isDone,
+                        updatedAt: now,
+                      }
+                    : item,
+                ),
+              }
+            : list,
+        ),
+      };
+    });
+  }
+
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-8 px-6 py-10 sm:px-10">
       <TodoHeader listCount={snapshot.lists.length} todoCount={totalItems} />
@@ -171,6 +211,11 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
                     [selectedList.id]: "",
                   }));
                 }
+              : undefined
+          }
+          onSetTodoDone={
+            selectedList
+              ? (itemId, isDone) => setTodoDone(selectedList.id, itemId, isDone)
               : undefined
           }
         />

@@ -1,19 +1,21 @@
+"use client";
+
 import type { TodoItemSnapshot } from "@/lib/todos/types";
 
 type TodoItemRowProps = {
   item: TodoItemSnapshot;
+  onSetDone: (isDone: boolean) => void;
 };
 
-export function TodoItemRow({ item }: TodoItemRowProps) {
+export function TodoItemRow({ item, onSetDone }: TodoItemRowProps) {
   return (
     <li className="flex items-start gap-3 py-3">
-      <span
-        aria-hidden="true"
-        className={`mt-1 h-3 w-3 rounded-full border ${
-          item.isDone
-            ? "border-emerald-600 bg-emerald-600"
-            : "border-zinc-300 bg-white"
-        }`}
+      <input
+        aria-label={`Mark ${item.title} as ${item.isDone ? "not done" : "done"}`}
+        checked={item.isDone}
+        className="mt-1 h-4 w-4 rounded border-zinc-300 text-zinc-950"
+        onChange={(event) => onSetDone(event.target.checked)}
+        type="checkbox"
       />
       <span
         className={`text-sm leading-6 ${
@@ -25,4 +27,3 @@ export function TodoItemRow({ item }: TodoItemRowProps) {
     </li>
   );
 }
-

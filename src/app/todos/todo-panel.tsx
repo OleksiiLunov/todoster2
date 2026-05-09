@@ -12,6 +12,7 @@ type TodoPanelProps = {
   maxTitleLength: number;
   onItemSubmit?: (event: FormEvent<HTMLFormElement>) => void;
   onItemTitleChange?: (title: string) => void;
+  onSetTodoDone?: (itemId: string, isDone: boolean) => void;
 };
 
 export function TodoPanel({
@@ -21,8 +22,9 @@ export function TodoPanel({
   maxTitleLength,
   onItemSubmit,
   onItemTitleChange,
+  onSetTodoDone,
 }: TodoPanelProps) {
-  if (!list || !onItemSubmit || !onItemTitleChange) {
+  if (!list || !onItemSubmit || !onItemTitleChange || !onSetTodoDone) {
     return (
       <section className="rounded-md border border-dashed border-zinc-300 bg-zinc-50 p-8 text-center">
         <h2 className="text-lg font-medium text-zinc-950">No list selected</h2>
@@ -58,7 +60,11 @@ export function TodoPanel({
       ) : (
         <ul className="mt-6 divide-y divide-zinc-100">
           {list.items.map((item) => (
-            <TodoItemRow item={item} key={item.id} />
+            <TodoItemRow
+              item={item}
+              key={item.id}
+              onSetDone={(isDone) => onSetTodoDone(item.id, isDone)}
+            />
           ))}
         </ul>
       )}
