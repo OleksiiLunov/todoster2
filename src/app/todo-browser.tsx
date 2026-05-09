@@ -378,6 +378,14 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
     );
   }, [isInitialized, snapshot]);
 
+  useEffect(() => {
+    if (!isInitialized) {
+      return;
+    }
+
+    void processSyncQueue();
+  }, [isInitialized]);
+
   const totalItems = snapshot.lists.reduce(
     (count, list) => count + list.items.length,
     0,
@@ -423,7 +431,15 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
   }
 
   function enqueueSyncOperation(operation: SyncOperation) {
-    writeSyncQueue([...readSyncQueue(), operation]);
+    const queue = readSyncQueue();
+    const operationAlreadyQueued = queue.some(
+      (queuedOperation) => queuedOperation.id === operation.id,
+    );
+
+    if (!operationAlreadyQueued) {
+      writeSyncQueue([...queue, operation]);
+    }
+
     void processSyncQueue();
   }
 
