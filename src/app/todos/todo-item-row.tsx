@@ -4,10 +4,21 @@ import type { TodoItemSnapshot } from "@/lib/todos/types";
 
 type TodoItemRowProps = {
   item: TodoItemSnapshot;
+  maxTitleLength: number;
+  onRenameTitleInput: () => void;
   onSetDone: (isDone: boolean) => void;
+  onSetTitle: (title: string) => void;
+  renameError: string;
 };
 
-export function TodoItemRow({ item, onSetDone }: TodoItemRowProps) {
+export function TodoItemRow({
+  item,
+  maxTitleLength,
+  onRenameTitleInput,
+  onSetDone,
+  onSetTitle,
+  renameError,
+}: TodoItemRowProps) {
   return (
     <li className="flex items-start gap-3 py-3">
       <input
@@ -17,13 +28,36 @@ export function TodoItemRow({ item, onSetDone }: TodoItemRowProps) {
         onChange={(event) => onSetDone(event.target.checked)}
         type="checkbox"
       />
-      <span
-        className={`text-sm leading-6 ${
-          item.isDone ? "text-zinc-500 line-through" : "text-zinc-800"
-        }`}
+      <form
+        className="min-w-0 flex-1"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const formData = new FormData(event.currentTarget);
+          onSetTitle(String(formData.get("title") ?? ""));
+        }}
       >
-        {item.title}
-      </span>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <input
+            className={`h-9 min-w-0 flex-1 rounded-md border border-zinc-300 px-3 text-sm outline-none transition focus:border-zinc-900 ${
+              item.isDone ? "text-zinc-500 line-through" : "text-zinc-800"
+            }`}
+            defaultValue={item.title}
+            key={item.updatedAt}
+            maxLength={maxTitleLength}
+            name="title"
+            onChange={onRenameTitleInput}
+          />
+          <button
+            className="h-9 rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50"
+            type="submit"
+          >
+            Rename
+          </button>
+        </div>
+        {renameError ? (
+          <p className="mt-2 text-sm text-red-600">{renameError}</p>
+        ) : null}
+      </form>
     </li>
   );
 }

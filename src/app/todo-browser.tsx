@@ -40,6 +40,12 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
   const [listError, setListError] = useState("");
   const [itemTitles, setItemTitles] = useState<Record<string, string>>({});
   const [itemErrors, setItemErrors] = useState<Record<string, string>>({});
+  const [listRenameErrors, setListRenameErrors] = useState<
+    Record<string, string>
+  >({});
+  const [itemRenameErrors, setItemRenameErrors] = useState<
+    Record<string, string>
+  >({});
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -170,6 +176,95 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
     });
   }
 
+  function setTodoListTitle(listId: string, title: string) {
+    const validation = validateTitle(title);
+    if (validation.error) {
+      setListRenameErrors((currentErrors) => ({
+        ...currentErrors,
+        [listId]: validation.error,
+      }));
+      return;
+    }
+
+    setSnapshot((currentSnapshot) => {
+      const targetList = currentSnapshot.lists.find(
+        (list) => list.id === listId,
+      );
+
+      if (!targetList || targetList.title === validation.title) {
+        return currentSnapshot;
+      }
+
+      const now = new Date().toISOString();
+
+      return {
+        ...currentSnapshot,
+        lists: currentSnapshot.lists.map((list) =>
+          list.id === listId
+            ? {
+                ...list,
+                title: validation.title,
+                updatedAt: now,
+              }
+            : list,
+        ),
+      };
+    });
+    setListRenameErrors((currentErrors) => ({
+      ...currentErrors,
+      [listId]: "",
+    }));
+  }
+
+  function setTodoItemTitle(listId: string, itemId: string, title: string) {
+    const validation = validateTitle(title);
+    if (validation.error) {
+      setItemRenameErrors((currentErrors) => ({
+        ...currentErrors,
+        [itemId]: validation.error,
+      }));
+      return;
+    }
+
+    setSnapshot((currentSnapshot) => {
+      const targetList = currentSnapshot.lists.find(
+        (list) => list.id === listId,
+      );
+      const targetItem = targetList?.items.find((item) => item.id === itemId);
+
+      if (!targetList || !targetItem || targetItem.title === validation.title) {
+        return currentSnapshot;
+      }
+
+      const now = new Date().toISOString();
+
+      return {
+        ...currentSnapshot,
+        lists: currentSnapshot.lists.map((list) =>
+          list.id === listId
+            ? {
+                ...list,
+                updatedAt: now,
+                items: list.items.map((item) =>
+                  item.id === itemId
+                    ? {
+                        ...item,
+                        title: validation.title,
+                        updatedAt: now,
+                      }
+                    : item,
+                ),
+              }
+            : list,
+        ),
+      };
+    });
+    setItemRenameErrors((currentErrors) => ({
+      ...currentErrors,
+      [itemId]: "",
+    }));
+  }
+
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-8 px-6 py-10 sm:px-10">
       <TodoHeader listCount={snapshot.lists.length} todoCount={totalItems} />
@@ -191,8 +286,12 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
 
         <TodoPanel
           itemError={selectedList ? (itemErrors[selectedList.id] ?? "") : ""}
+          itemRenameErrors={itemRenameErrors}
           itemTitle={selectedList ? (itemTitles[selectedList.id] ?? "") : ""}
           list={selectedList}
+          listRenameError={
+            selectedList ? (listRenameErrors[selectedList.id] ?? "") : ""
+          }
           maxTitleLength={MAX_TODO_TITLE_LENGTH}
           onItemSubmit={
             selectedList
@@ -216,6 +315,35 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
           onSetTodoDone={
             selectedList
               ? (itemId, isDone) => setTodoDone(selectedList.id, itemId, isDone)
+              : undefined
+          }
+          onSetTodoItemTitle={
+            selectedList
+              ? (itemId, title) =>
+                  setTodoItemTitle(selectedList.id, itemId, title)
+              : undefined
+          }
+          onSetTodoListTitle={
+            selectedList
+              ? (title) => setTodoListTitle(selectedList.id, title)
+              : undefined
+          }
+          onTodoItemTitleInput={
+            selectedList
+              ? (itemId) =>
+                  setItemRenameErrors((currentErrors) => ({
+                    ...currentErrors,
+                    [itemId]: "",
+                  }))
+              : undefined
+          }
+          onTodoListTitleInput={
+            selectedList
+              ? () =>
+                  setListRenameErrors((currentErrors) => ({
+                    ...currentErrors,
+                    [selectedList.id]: "",
+                  }))
               : undefined
           }
         />
