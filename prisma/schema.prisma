@@ -13,10 +13,10 @@ datasource db {
 }
 
 model TodoList {
-  id Int @id @default(autoincrement())
-  userId String 
+  id String @id
+  userId String
   title String
-  position  Int
+  position Int
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   items TodoItem[]
@@ -27,12 +27,12 @@ model TodoList {
 
 
 model TodoItem {
-  id Int @id @default(autoincrement())
-  listId Int
+  id String @id
+  listId String
   list TodoList @relation(fields: [listId], references: [id], onDelete: Cascade)
   title String
-  position  Int
-  ccreatedAt DateTime @default(now())
+  position Int
+  createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   isDone Boolean @default(false)
 
