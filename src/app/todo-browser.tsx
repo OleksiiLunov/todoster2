@@ -1,6 +1,13 @@
 "use client";
 
 import { type FormEvent, useEffect, useState } from "react";
+import {
+  createTodoItem,
+  createTodoList,
+  setTodoItemDone as persistTodoItemDone,
+  setTodoItemTitle as persistTodoItemTitle,
+  setTodoListTitle as persistTodoListTitle,
+} from "@/app/actions/todos";
 import { TodoHeader } from "@/app/todos/todo-header";
 import { TodoListPanel } from "@/app/todos/todo-list-panel";
 import { TodoPanel } from "@/app/todos/todo-panel";
@@ -11,6 +18,11 @@ const TODO_SESSION_MARKER_STORAGE_KEY = "todoster:browser-session:v1";
 const TODO_SESSION_TTL_MS = 30 * 60 * 1000;
 const TODO_SESSION_HEARTBEAT_MS = 30 * 1000;
 export const MAX_TODO_TITLE_LENGTH = 120;
+
+type PersistenceResult = {
+  error?: string;
+  ok: boolean;
+};
 
 type TodoBrowserProps = {
   bootstrap: TodoSnapshot;
@@ -154,9 +166,14 @@ function touchBrowserSessionMarker() {
   });
 }
 
+function getPersistenceErrorMessage(result: PersistenceResult) {
+  return result.error ?? "Could not save changes. Please try again.";
+}
+
 export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
   const [snapshot, setSnapshot] = useState<TodoSnapshot>(bootstrap);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [syncError, setSyncError] = useState("");
   const [listTitle, setListTitle] = useState("");
   const [listError, setListError] = useState("");
   const [itemTitles, setItemTitles] = useState<Record<string, string>>({});
@@ -228,6 +245,17 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
   const selectedList =
     snapshot.lists.find((list) => list.id === selectedListId) ?? null;
 
+  async function persistChange(command: Promise<PersistenceResult>) {
+    const result = await command;
+
+    if (result.ok) {
+      setSyncError("");
+      return;
+    }
+
+    setSyncError(getPersistenceErrorMessage(result));
+  }
+
   function handleCreateList(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -239,6 +267,7 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
 
     const now = new Date().toISOString();
     const listId = createBrowserId("list");
+    const position = snapshot.lists.length;
 
     setSnapshot((currentSnapshot) => ({
       ...currentSnapshot,
@@ -247,7 +276,7 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
         {
           id: listId,
           title: validation.title,
-          position: currentSnapshot.lists.length,
+          position,
           createdAt: now,
           updatedAt: now,
           items: [],
@@ -257,6 +286,13 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
     setSelectedListId(listId);
     setListTitle("");
     setListError("");
+    void persistChange(
+      createTodoList({
+        id: listId,
+        position,
+        title: validation.title,
+      }),
+    );
   }
 
   function handleCreateItem(
@@ -275,6 +311,15 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
     }
 
     const now = new Date().toISOString();
+    const targetList = snapshot.lists.find((list) => list.id === listId);
+
+    if (!targetList) {
+      setSyncError("Could not save changes. List was not found.");
+      return;
+    }
+
+    const itemId = createBrowserId("item");
+    const position = targetList.items.length;
 
     setSnapshot((currentSnapshot) => ({
       ...currentSnapshot,
@@ -286,9 +331,9 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
               items: [
                 ...list.items,
                 {
-                  id: createBrowserId("item"),
+                  id: itemId,
                   title: validation.title,
-                  position: list.items.length,
+                  position,
                   isDone: false,
                   createdAt: now,
                   updatedAt: now,
@@ -300,6 +345,14 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
     }));
     setItemTitles((currentTitles) => ({ ...currentTitles, [listId]: "" }));
     setItemErrors((currentErrors) => ({ ...currentErrors, [listId]: "" }));
+    void persistChange(
+      createTodoItem({
+        id: itemId,
+        listId,
+        position,
+        title: validation.title,
+      }),
+    );
   }
 
   function setTodoDone(listId: string, itemId: string, isDone: boolean) {
@@ -307,16 +360,14 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
       return;
     }
 
+    const targetList = snapshot.lists.find((list) => list.id === listId);
+    const targetItem = targetList?.items.find((item) => item.id === itemId);
+
+    if (!targetList || !targetItem || targetItem.isDone === isDone) {
+      return;
+    }
+
     setSnapshot((currentSnapshot) => {
-      const targetList = currentSnapshot.lists.find(
-        (list) => list.id === listId,
-      );
-      const targetItem = targetList?.items.find((item) => item.id === itemId);
-
-      if (!targetList || !targetItem || targetItem.isDone === isDone) {
-        return currentSnapshot;
-      }
-
       const now = new Date().toISOString();
 
       return {
@@ -340,6 +391,12 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
         ),
       };
     });
+    void persistChange(
+      persistTodoItemDone({
+        id: itemId,
+        isDone,
+      }),
+    );
   }
 
   function setTodoListTitle(listId: string, title: string) {
@@ -352,15 +409,17 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
       return;
     }
 
+    const targetList = snapshot.lists.find((list) => list.id === listId);
+
+    if (!targetList || targetList.title === validation.title) {
+      setListRenameErrors((currentErrors) => ({
+        ...currentErrors,
+        [listId]: "",
+      }));
+      return;
+    }
+
     setSnapshot((currentSnapshot) => {
-      const targetList = currentSnapshot.lists.find(
-        (list) => list.id === listId,
-      );
-
-      if (!targetList || targetList.title === validation.title) {
-        return currentSnapshot;
-      }
-
       const now = new Date().toISOString();
 
       return {
@@ -380,6 +439,12 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
       ...currentErrors,
       [listId]: "",
     }));
+    void persistChange(
+      persistTodoListTitle({
+        id: listId,
+        title: validation.title,
+      }),
+    );
   }
 
   function setTodoItemTitle(listId: string, itemId: string, title: string) {
@@ -392,16 +457,18 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
       return;
     }
 
+    const targetList = snapshot.lists.find((list) => list.id === listId);
+    const targetItem = targetList?.items.find((item) => item.id === itemId);
+
+    if (!targetList || !targetItem || targetItem.title === validation.title) {
+      setItemRenameErrors((currentErrors) => ({
+        ...currentErrors,
+        [itemId]: "",
+      }));
+      return;
+    }
+
     setSnapshot((currentSnapshot) => {
-      const targetList = currentSnapshot.lists.find(
-        (list) => list.id === listId,
-      );
-      const targetItem = targetList?.items.find((item) => item.id === itemId);
-
-      if (!targetList || !targetItem || targetItem.title === validation.title) {
-        return currentSnapshot;
-      }
-
       const now = new Date().toISOString();
 
       return {
@@ -429,11 +496,23 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
       ...currentErrors,
       [itemId]: "",
     }));
+    void persistChange(
+      persistTodoItemTitle({
+        id: itemId,
+        title: validation.title,
+      }),
+    );
   }
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-8 px-6 py-10 sm:px-10">
       <TodoHeader listCount={snapshot.lists.length} todoCount={totalItems} />
+
+      {syncError ? (
+        <p className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {syncError}
+        </p>
+      ) : null}
 
       <section className="grid min-h-[28rem] gap-4 lg:grid-cols-[20rem_minmax(0,1fr)]">
         <TodoListPanel
