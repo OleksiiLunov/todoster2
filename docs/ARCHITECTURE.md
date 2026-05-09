@@ -98,39 +98,43 @@ The server does not own live UI state.
 
 The architecture distinguishes between:
 
-- active browser session
-- new browser session
+- active browser-profile session window
+- expired or missing browser-profile session window
 
 Implementation intent:
 
-- `sessionStorage` tracks whether the current browser session is active
-- `localStorage` stores browser snapshot and sync queue
+- `localStorage` stores browser snapshot
+- `localStorage` stores sync queue
+- `localStorage` stores a shared browser-profile session marker
+- the session marker uses TTL semantics
+- the marker contains:
+  - `startedAt`
+  - `lastSeenAt`
 
 Rules:
 
-If browser session is active:
+If a valid non-expired session marker exists:
 
 - restore browser-owned snapshot
+- continue local browser state
+- update `lastSeenAt`
 
-If browser session is new:
+If the marker is missing or expired:
 
-- fetch latest persisted state from the server
+- fetch latest persisted server state
 - initialize browser state from server bootstrap
 - overwrite local browser snapshot
-- mark browser session as active
+- create a fresh session marker
 
-This protects both:
-
-- in-session continuity
-- cross-browser consistency
+This is a pragmatic browser-profile continuity model, not a perfect browser lifecycle signal.
 
 ---
 
 ## Startup bootstrap rule
 
-Bootstrap behavior depends on browser session context.
+Bootstrap behavior depends on session window state.
 
-### Active browser session
+### Active browser-profile session window
 
 Browser snapshot is authoritative.
 
@@ -139,12 +143,12 @@ Examples:
 - page refresh
 - route navigation
 - accidental reload
-- tab continuation
+- opening a new tab shortly after using the app
 
 Flow:
 
 ```txt
-reload
+reload / reopen soon
 → restore browser snapshot
 → continue browser-owned state
 ```
@@ -155,51 +159,29 @@ Prevent local work from being lost before persistence completes.
 
 ---
 
-### New browser session
+### Missing or expired browser-profile session window
 
 Server bootstrap is authoritative.
 
 Flow:
 
 ```txt
-new browser session
+open app after session expiry
 → fetch latest persisted database state
 → initialize browser state
-→ write fresh browser snapshot
-→ mark session active
+→ overwrite browser snapshot
+→ create fresh session marker
 ```
+
+TTL behavior:
+
+- refresh shortly after local work restores browser snapshot
+- new tabs shortly after local work restore browser snapshot
+- reopening the app much later starts from server bootstrap
 
 Reason:
 
-A stale snapshot from an earlier session must not silently override newer persisted database truth.
-
-Example:
-
-Bad:
-
-```txt
-Browser A updates todos
-→ persists to DB
-
-Later:
-
-Browser B has stale local snapshot
-→ opens app
-→ stale snapshot overrides persisted truth
-```
-
-Good:
-
-```txt
-Browser A updates todos
-→ persists to DB
-
-Later:
-
-New browser session starts
-→ latest DB snapshot loads
-→ browser initializes from durable truth
-```
+A stale snapshot from an older browser context must not silently override newer persisted truth.
 
 ---
 
@@ -285,18 +267,18 @@ Properties:
 
 ---
 
-### Browser session persistence
+### Browser continuity persistence
 
-Browser snapshot persistence protects session continuity.
+Browser snapshot persistence protects continuity.
 
 Used for:
 
 - refresh recovery
 - reload recovery
-- tab continuity
+- short-term tab continuity
 - multi-tab coordination
 
-Not authoritative across sessions.
+Not authoritative long-term.
 
 ---
 
@@ -309,7 +291,7 @@ Properties:
 - persistent
 - cross-browser
 - cross-device
-- authoritative for new browser sessions
+- authoritative after session expiry
 
 ---
 
@@ -375,7 +357,7 @@ This enables:
 
 - snapshot propagation
 - sync queue propagation
-- in-session state continuity
+- short-term continuity
 
 This is browser-local coordination.
 
@@ -427,7 +409,6 @@ All reads and writes are scoped to this temporary identity.
 - Supabase Postgres
 - Server Actions
 - localStorage
-- sessionStorage
 
 ---
 

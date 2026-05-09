@@ -30,12 +30,13 @@ Current architecture is browser-first / local-first sync.
 Rules:
 
 - browser owns live interactive application state
-- browser snapshot is authoritative within an active browser session
-- server bootstrap is authoritative on new browser session startup
-- stale browser snapshots must not override newer persisted truth across sessions
+- browser snapshot is authoritative within a valid browser-profile session window
+- server bootstrap is authoritative when the browser-profile session marker is missing or expired
+- stale browser snapshots must not override newer persisted truth
 - database is durable shared truth
-- localStorage stores browser snapshot + sync queue
-- sessionStorage tracks browser session state
+- localStorage stores browser snapshot
+- localStorage stores sync queue
+- localStorage stores a TTL-based browser-profile session marker
 - Server Actions are persistence commands
 - no revalidatePath for browser-first interactions
 - desired-state operations only
@@ -166,7 +167,7 @@ Prefer one vertical slice at a time.
 Good slices:
 
 - bootstrap loading
-- browser snapshot restore
+- session continuity restore
 - local create flow
 - local update flow
 - persistence commands

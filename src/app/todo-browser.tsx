@@ -7,6 +7,7 @@ import { TodoPanel } from "@/app/todos/todo-panel";
 import type { TodoSnapshot } from "@/lib/todos/types";
 
 const TODO_SNAPSHOT_STORAGE_KEY = "todoster:snapshot:v1";
+const TODO_SESSION_STORAGE_KEY = "todoster:session-active:v1";
 export const MAX_TODO_TITLE_LENGTH = 120;
 
 type TodoBrowserProps = {
@@ -34,8 +35,69 @@ function validateTitle(title: string) {
   return { title: trimmedTitle, error: "" };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isTodoSnapshot(value: unknown): value is TodoSnapshot {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  if (
+    typeof value.userId !== "string" ||
+    typeof value.bootstrappedAt !== "string" ||
+    !Array.isArray(value.lists)
+  ) {
+    return false;
+  }
+
+  return value.lists.every((list) => {
+    if (!isRecord(list) || !Array.isArray(list.items)) {
+      return false;
+    }
+
+    const hasValidListShape =
+      typeof list.id === "string" &&
+      typeof list.title === "string" &&
+      typeof list.position === "number" &&
+      typeof list.createdAt === "string" &&
+      typeof list.updatedAt === "string";
+
+    return (
+      hasValidListShape &&
+      list.items.every(
+        (item) =>
+          isRecord(item) &&
+          typeof item.id === "string" &&
+          typeof item.title === "string" &&
+          typeof item.position === "number" &&
+          typeof item.isDone === "boolean" &&
+          typeof item.createdAt === "string" &&
+          typeof item.updatedAt === "string",
+      )
+    );
+  });
+}
+
+function readStoredTodoSnapshot() {
+  const rawSnapshot = window.localStorage.getItem(TODO_SNAPSHOT_STORAGE_KEY);
+
+  if (!rawSnapshot) {
+    return null;
+  }
+
+  try {
+    const parsedSnapshot: unknown = JSON.parse(rawSnapshot);
+    return isTodoSnapshot(parsedSnapshot) ? parsedSnapshot : null;
+  } catch {
+    return null;
+  }
+}
+
 export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
   const [snapshot, setSnapshot] = useState<TodoSnapshot>(bootstrap);
+  const [isInitialized, setIsInitialized] = useState(false);
   const [listTitle, setListTitle] = useState("");
   const [listError, setListError] = useState("");
   const [itemTitles, setItemTitles] = useState<Record<string, string>>({});
@@ -49,11 +111,30 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
 
   useEffect(() => {
+    const sessionIsActive =
+      window.sessionStorage.getItem(TODO_SESSION_STORAGE_KEY) === "true";
+    const storedSnapshot = sessionIsActive ? readStoredTodoSnapshot() : null;
+    const initialSnapshot = storedSnapshot ?? bootstrap;
+
+    setSnapshot(initialSnapshot);
+    window.localStorage.setItem(
+      TODO_SNAPSHOT_STORAGE_KEY,
+      JSON.stringify(initialSnapshot),
+    );
+    window.sessionStorage.setItem(TODO_SESSION_STORAGE_KEY, "true");
+    setIsInitialized(true);
+  }, [bootstrap]);
+
+  useEffect(() => {
+    if (!isInitialized) {
+      return;
+    }
+
     window.localStorage.setItem(
       TODO_SNAPSHOT_STORAGE_KEY,
       JSON.stringify(snapshot),
     );
-  }, [snapshot]);
+  }, [isInitialized, snapshot]);
 
   const totalItems = snapshot.lists.reduce(
     (count, list) => count + list.items.length,
