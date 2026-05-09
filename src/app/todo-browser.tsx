@@ -7,11 +7,18 @@ import { TodoPanel } from "@/app/todos/todo-panel";
 import type { TodoSnapshot } from "@/lib/todos/types";
 
 const TODO_SNAPSHOT_STORAGE_KEY = "todoster:snapshot:v1";
-const TODO_SESSION_STORAGE_KEY = "todoster:session-active:v1";
+const TODO_SESSION_MARKER_STORAGE_KEY = "todoster:browser-session:v1";
+const TODO_SESSION_TTL_MS = 30 * 60 * 1000;
+const TODO_SESSION_HEARTBEAT_MS = 30 * 1000;
 export const MAX_TODO_TITLE_LENGTH = 120;
 
 type TodoBrowserProps = {
   bootstrap: TodoSnapshot;
+};
+
+type BrowserSessionMarker = {
+  startedAt: number;
+  lastSeenAt: number;
 };
 
 function createBrowserId(prefix: "list" | "item") {
@@ -95,6 +102,58 @@ function readStoredTodoSnapshot() {
   }
 }
 
+function isBrowserSessionMarker(value: unknown): value is BrowserSessionMarker {
+  return (
+    isRecord(value) &&
+    typeof value.startedAt === "number" &&
+    typeof value.lastSeenAt === "number" &&
+    Number.isFinite(value.startedAt) &&
+    Number.isFinite(value.lastSeenAt) &&
+    value.startedAt > 0 &&
+    value.lastSeenAt >= value.startedAt
+  );
+}
+
+function readStoredBrowserSessionMarker() {
+  const rawMarker = window.localStorage.getItem(TODO_SESSION_MARKER_STORAGE_KEY);
+
+  if (!rawMarker) {
+    return null;
+  }
+
+  try {
+    const parsedMarker: unknown = JSON.parse(rawMarker);
+    return isBrowserSessionMarker(parsedMarker) ? parsedMarker : null;
+  } catch {
+    return null;
+  }
+}
+
+function isBrowserSessionActive(
+  marker: BrowserSessionMarker | null,
+  now: number,
+) {
+  return Boolean(marker && now - marker.lastSeenAt <= TODO_SESSION_TTL_MS);
+}
+
+function writeBrowserSessionMarker(marker: BrowserSessionMarker) {
+  window.localStorage.setItem(
+    TODO_SESSION_MARKER_STORAGE_KEY,
+    JSON.stringify(marker),
+  );
+}
+
+function touchBrowserSessionMarker() {
+  const now = Date.now();
+  const marker = readStoredBrowserSessionMarker();
+  const markerIsActive = isBrowserSessionActive(marker, now);
+
+  writeBrowserSessionMarker({
+    startedAt: markerIsActive && marker ? marker.startedAt : now,
+    lastSeenAt: now,
+  });
+}
+
 export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
   const [snapshot, setSnapshot] = useState<TodoSnapshot>(bootstrap);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -111,8 +170,9 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
 
   useEffect(() => {
-    const sessionIsActive =
-      window.sessionStorage.getItem(TODO_SESSION_STORAGE_KEY) === "true";
+    const now = Date.now();
+    const sessionMarker = readStoredBrowserSessionMarker();
+    const sessionIsActive = isBrowserSessionActive(sessionMarker, now);
     const storedSnapshot = sessionIsActive ? readStoredTodoSnapshot() : null;
     const initialSnapshot = storedSnapshot ?? bootstrap;
 
@@ -121,9 +181,34 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
       TODO_SNAPSHOT_STORAGE_KEY,
       JSON.stringify(initialSnapshot),
     );
-    window.sessionStorage.setItem(TODO_SESSION_STORAGE_KEY, "true");
+    writeBrowserSessionMarker({
+      startedAt: sessionIsActive && sessionMarker ? sessionMarker.startedAt : now,
+      lastSeenAt: now,
+    });
     setIsInitialized(true);
   }, [bootstrap]);
+
+  useEffect(() => {
+    if (!isInitialized) {
+      return;
+    }
+
+    touchBrowserSessionMarker();
+
+    const intervalId = window.setInterval(
+      touchBrowserSessionMarker,
+      TODO_SESSION_HEARTBEAT_MS,
+    );
+
+    window.addEventListener("focus", touchBrowserSessionMarker);
+    document.addEventListener("visibilitychange", touchBrowserSessionMarker);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", touchBrowserSessionMarker);
+      document.removeEventListener("visibilitychange", touchBrowserSessionMarker);
+    };
+  }, [isInitialized]);
 
   useEffect(() => {
     if (!isInitialized) {
