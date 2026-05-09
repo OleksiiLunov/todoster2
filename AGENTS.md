@@ -6,20 +6,20 @@ ToDoster is a production-oriented learning pet project.
 
 Goals:
 
-- learn modern full-stack engineering;
-- learn production architecture thinking;
-- learn AI-assisted development workflows;
-- build a realistic todo application.
+- learn modern full-stack engineering
+- learn production architecture thinking
+- learn AI-assisted development workflows
+- build a realistic todo application incrementally
 
 ---
 
-## Read before changing code
+## Required reading
 
-Always read:
+Always read before changing code:
 
 - docs/ARCHITECTURE.md
 
-Treat that document as the architectural source of truth.
+Treat it as the architectural source of truth.
 
 ---
 
@@ -29,17 +29,28 @@ Current architecture is browser-first / local-first sync.
 
 Rules:
 
-- browser owns live application state;
-- database is durable persisted truth;
-- server bootstrap is authoritative on application startup;
-- localStorage must not override server bootstrap on startup;
-- after bootstrap, browser state owns interaction flow;
-- localStorage stores browser snapshot + sync queue;
-- server actions are persistence commands;
-- no revalidatePath for browser-first interactions;
-- desired-state operations only;
-- last write wins;
-- multi-tab sync uses storage event.
+- browser owns live interactive application state
+- browser snapshot is authoritative within an active browser session
+- server bootstrap is authoritative on new browser session startup
+- stale browser snapshots must not override newer persisted truth across sessions
+- database is durable shared truth
+- localStorage stores browser snapshot + sync queue
+- sessionStorage tracks browser session state
+- Server Actions are persistence commands
+- no revalidatePath for browser-first interactions
+- desired-state operations only
+- conflict strategy is Last Write Wins
+- multi-tab coordination uses storage event
+
+---
+
+## Validation rules
+
+Browser validates domain/user input before state mutation.
+
+Server re-validates persistence operations at the trust boundary.
+
+Never trust browser input for persistence.
 
 ---
 
@@ -65,52 +76,44 @@ TEMP_USER_ID = "test-user"
 
 ---
 
-## Validation rules
-
-Browser validates user/domain input before writing to browser state.
-
-Server re-validates persistence operations at the trust boundary.
-
-Never assume browser input is trusted.
-
----
-
 ## Coding rules
 
 Prefer:
 
 - small focused changes
 - minimal surface area
-- explicit naming
 - simple composable modules
-- server/client separation
-- strongly typed interfaces
+- explicit naming
+- strong typing
+- clear browser/server separation
 
 Avoid:
 
-- architectural rewrites unless explicitly requested
 - speculative abstractions
 - premature complexity
-- introducing libraries without clear need
+- architecture rewrites without explicit approval
+- adding libraries without strong need
 
 ---
 
 ## Persistence semantics
 
-Interactive UI updates must be browser-first.
+Interactive updates are browser-first.
 
-Pattern:
+Expected pattern:
 
 ```txt
 user action
 → browser validation
-→ browser state update
-→ snapshot persistence
+→ browser state mutation
+→ browser snapshot persistence
 → sync queue append
-→ server persistence
+→ persistence dispatch
+→ server validation
+→ database persistence
 ```
 
-NOT:
+Not:
 
 ```txt
 user action
@@ -124,17 +127,19 @@ user action
 
 Server Actions are persistence commands.
 
-They:
+Allowed:
 
-- validate
-- persist
-- return persistence results if needed
+- validate persistence payloads
+- enforce user scope
+- persist data
+- return persistence results
 
-They do NOT:
+Forbidden:
 
-- own UI state
-- revalidate browser-first interactions
-- act as rendering orchestration
+- owning UI state
+- browser-state orchestration
+- revalidation-driven browser refresh
+- toggle-style domain semantics
 
 ---
 
@@ -146,7 +151,7 @@ Required workflow:
 define → design → implement → review → build → commit
 ```
 
-After every implementation:
+Always after implementation:
 
 ```bash
 npm run build
@@ -158,22 +163,24 @@ npm run build
 
 Prefer one vertical slice at a time.
 
-Good:
+Good slices:
 
 - bootstrap loading
-- local snapshot persistence
-- create todo flow
-- complete todo flow
-- sync queue implementation
+- browser snapshot restore
+- local create flow
+- local update flow
+- persistence commands
+- sync queue
+- retry handling
 
-Bad:
+Bad slices:
 
-implement full sync engine + mutations + retries + conflict handling in one change
+- full sync engine + retries + persistence + conflict handling at once
 
 ---
 
-## If architecture ambiguity exists
+## If ambiguity exists
 
 Prefer alignment with docs/ARCHITECTURE.md.
 
-Do not silently revert toward server-first architecture.
+Never silently drift back toward server-first architecture.

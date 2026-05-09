@@ -4,7 +4,12 @@
 
 ToDoster is a production-oriented learning pet project.
 
-The goal is not only to build a todo application, but to learn modern full-stack engineering, architecture, and AI-assisted development workflows.
+The goal is not only to build a todo application, but to learn:
+
+- modern full-stack engineering
+- production architecture thinking
+- AI-assisted development workflows
+- incremental product development
 
 ---
 
@@ -12,15 +17,15 @@ The goal is not only to build a todo application, but to learn modern full-stack
 
 ToDoster uses a browser-first / local-first sync architecture.
 
-Core principle:
+Core principles:
 
-- the browser owns live interactive application state;
-- the server owns persistence and validation;
-- the database is the durable source of persisted truth;
-- local browser state is optimized for responsiveness;
-- server state is optimized for durability.
+- browser owns live interactive application state
+- server owns persistence and trust-boundary validation
+- database is durable persisted truth
+- browser state is optimized for responsiveness
+- persistence is optimized for durability and cross-browser consistency
 
-This is an intentional pivot away from the earlier server-first / revalidate-driven model.
+This is an intentional pivot away from the earlier server-first / revalidation-driven architecture.
 
 ---
 
@@ -81,29 +86,92 @@ Browser state is the live source of truth for interactive UI.
 
 This means:
 
-- clicks update browser state immediately;
-- browser state drives rendering;
-- UI responsiveness does not depend on round-trips.
+- user interactions update browser state immediately
+- rendering is driven by browser state
+- UI responsiveness does not depend on server round-trips
 
 The server does not own live UI state.
 
 ---
 
-### Startup bootstrap rule
+## Session model
 
-On every new application startup:
+The architecture distinguishes between:
 
-- the server bootstrap is the authoritative initial seed;
-- the browser initializes state from the latest persisted database snapshot;
-- that snapshot is then written to localStorage.
+- active browser session
+- new browser session
 
-Important:
+Implementation intent:
 
-localStorage must NOT override server bootstrap on startup.
+- `sessionStorage` tracks whether the current browser session is active
+- `localStorage` stores browser snapshot and sync queue
+
+Rules:
+
+If browser session is active:
+
+- restore browser-owned snapshot
+
+If browser session is new:
+
+- fetch latest persisted state from the server
+- initialize browser state from server bootstrap
+- overwrite local browser snapshot
+- mark browser session as active
+
+This protects both:
+
+- in-session continuity
+- cross-browser consistency
+
+---
+
+## Startup bootstrap rule
+
+Bootstrap behavior depends on browser session context.
+
+### Active browser session
+
+Browser snapshot is authoritative.
+
+Examples:
+
+- page refresh
+- route navigation
+- accidental reload
+- tab continuation
+
+Flow:
+
+```txt
+reload
+→ restore browser snapshot
+→ continue browser-owned state
+```
+
+Purpose:
+
+Prevent local work from being lost before persistence completes.
+
+---
+
+### New browser session
+
+Server bootstrap is authoritative.
+
+Flow:
+
+```txt
+new browser session
+→ fetch latest persisted database state
+→ initialize browser state
+→ write fresh browser snapshot
+→ mark session active
+```
 
 Reason:
 
-A stale snapshot from another browser session, browser profile, or older device must not overwrite newer persisted data.
+A stale snapshot from an earlier session must not silently override newer persisted database truth.
 
 Example:
 
@@ -111,46 +179,46 @@ Bad:
 
 ```txt
 Browser A updates todos
-→ syncs to database
+→ persists to DB
 
-Browser B has stale localStorage
+Later:
+
+Browser B has stale local snapshot
 → opens app
-→ stale localStorage overrides bootstrap
-→ stale data gets re-persisted
+→ stale snapshot overrides persisted truth
 ```
 
 Good:
 
 ```txt
 Browser A updates todos
-→ syncs to database
+→ persists to DB
 
-Browser B opens app
-→ loads latest database snapshot
-→ initializes browser state
-→ writes fresh snapshot to localStorage
+Later:
+
+New browser session starts
+→ latest DB snapshot loads
+→ browser initializes from durable truth
 ```
-
-After startup initialization, browser state becomes authoritative for live interaction.
 
 ---
 
-### Local-first interaction rule
+## Local-first interaction rule
 
-After bootstrap:
+After initialization:
 
-- browser updates happen immediately;
-- persistence happens asynchronously.
+- browser updates happen immediately
+- persistence happens asynchronously
 
 Flow:
 
 ```txt
-User action
+user action
 → browser validation
 → browser state update
-→ localStorage snapshot update
+→ local snapshot update
 → sync queue append
-→ sync engine dispatch
+→ persistence dispatch
 → server validation
 → database persistence
 ```
@@ -159,69 +227,95 @@ User action
 
 ## Validation model
 
-Validation exists in two places.
+Validation exists in two layers.
 
 ### Browser validation
 
 Browser validation protects browser-owned domain state.
 
-The browser should prevent invalid domain state from entering live UI state.
+Invalid state should not enter live browser state.
 
 Examples:
 
-- empty todo title;
-- excessively long input;
-- malformed edit state.
+- empty titles
+- whitespace-only titles
+- malformed values
+- invalid edit inputs
 
-This protects UX consistency.
+Purpose:
+
+Protect UX consistency and domain correctness.
 
 ---
 
 ### Server validation
 
-Server validation protects the persistence boundary.
+Server validation protects the persistence trust boundary.
 
-The server must re-validate incoming sync operations because the client cannot be trusted.
+Server must re-validate all persistence operations.
 
 Reasons:
 
-- browser bugs;
-- stale frontend code;
-- corrupted localStorage;
-- manually crafted requests;
-- future auth / permission checks.
+- browser bugs
+- stale frontend code
+- corrupted browser storage
+- manual requests
+- future authorization / permissions
 
-Server validation is not the first line of normal user validation.
+Server validation is defensive trust-boundary validation.
+
+It is not the primary UX validation layer.
 
 ---
 
 ## Persistence model
 
-Database persistence is durable truth.
+Three truth layers exist.
 
-Browser state is ephemeral interactive truth.
+### Browser interactive truth
 
-Meaning:
+Browser state is live interactive truth.
 
-Browser:
+Properties:
 
-- fast
+- immediate
 - responsive
-- temporary
 - optimistic
+- mutable
 
-Database:
+---
 
-- durable
-- shared between browsers
-- persistence boundary
-- authoritative persisted state
+### Browser session persistence
+
+Browser snapshot persistence protects session continuity.
+
+Used for:
+
+- refresh recovery
+- reload recovery
+- tab continuity
+- multi-tab coordination
+
+Not authoritative across sessions.
+
+---
+
+### Durable persisted truth
+
+Database state is durable shared truth.
+
+Properties:
+
+- persistent
+- cross-browser
+- cross-device
+- authoritative for new browser sessions
 
 ---
 
 ## Sync model
 
-Sync is based on desired-state operations.
+Synchronization uses desired-state operations.
 
 Good:
 
@@ -242,48 +336,50 @@ Bad:
 }
 ```
 
-Desired-state operations are safer because they are:
+Desired-state operations are preferred because they are:
 
-- idempotent-friendly;
-- retry-safe;
-- easier for conflict resolution;
-- deterministic.
+- deterministic
+- retry-friendly
+- easier to reason about
+- better for conflict handling
 
 ---
 
 ## Conflict strategy
 
-Current conflict resolution strategy:
+Current conflict strategy:
 
 Last Write Wins (LWW)
 
 Reason:
 
-This keeps architecture simple while learning browser-first sync design.
+Keep architecture simple while learning browser-first sync design.
 
 Not introduced yet:
 
-- CRDTs
 - merge strategies
+- CRDTs
 - operational transforms
-- collaborative editing conflict resolution
+- collaborative conflict resolution
 
 ---
 
 ## Multi-tab behavior
 
-Tabs in the same browser profile synchronize via:
+Tabs within the same browser profile coordinate through:
 
-`storage` event
+- `localStorage`
+- `storage` event
 
-This allows:
+This enables:
 
-- snapshot updates to propagate;
-- queue updates to propagate.
+- snapshot propagation
+- sync queue propagation
+- in-session state continuity
 
-This is NOT realtime backend sync.
+This is browser-local coordination.
 
-It only coordinates tabs sharing the same browser storage.
+Not realtime backend sync.
 
 ---
 
@@ -291,23 +387,23 @@ It only coordinates tabs sharing the same browser storage.
 
 Server Actions are persistence commands.
 
-They may:
+Allowed responsibilities:
 
-- validate payloads;
-- enforce current user scope;
-- persist data;
-- return persistence results.
+- validate persistence payloads
+- enforce current user scope
+- persist through Prisma
+- return persistence results if needed
 
-They must NOT:
+Forbidden responsibilities:
 
-- drive interactive UI state;
-- use revalidatePath for browser-first interactions;
-- own browser rendering flow;
-- implement toggle-style mutation semantics.
+- driving interactive UI state
+- browser-first revalidation orchestration
+- `revalidatePath` for browser interactions
+- toggle-style mutation semantics
 
 ---
 
-## Current temporary assumptions
+## Temporary assumptions
 
 Authentication does not exist yet.
 
@@ -331,12 +427,13 @@ All reads and writes are scoped to this temporary identity.
 - Supabase Postgres
 - Server Actions
 - localStorage
+- sessionStorage
 
 ---
 
-## Explicitly out of scope for now
+## Explicitly out of scope
 
-Do NOT introduce:
+Do NOT introduce yet:
 
 - authentication
 - IndexedDB
@@ -352,13 +449,13 @@ Do NOT introduce:
 
 ## Development workflow
 
-Process:
+Required process:
 
 ```txt
 define → design → implement → review → build → commit
 ```
 
-Mandatory after every change:
+Mandatory after every implementation:
 
 ```bash
 npm run build
