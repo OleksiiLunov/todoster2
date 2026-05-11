@@ -22,6 +22,17 @@ import {
 } from "@/lib/todos/browser-session-storage";
 import { dispatchSyncOperation } from "@/lib/todos/sync-operation-dispatch";
 import {
+  createTodoItemSnapshot,
+  createTodoListSnapshot,
+  deleteTodoItemSnapshot,
+  deleteTodoListSnapshot,
+  reorderTodoItemsSnapshot,
+  reorderTodoListsSnapshot,
+  setTodoItemDoneSnapshot,
+  setTodoItemTitleSnapshot,
+  setTodoListTitleSnapshot,
+} from "@/lib/todos/local-mutations";
+import {
   TODO_SYNC_QUEUE_STORAGE_KEY,
   createSyncOperationId,
   parseSyncQueue,
@@ -65,30 +76,6 @@ function validateTitle(title: string) {
 
 function getPersistenceErrorMessage(result: PersistenceResult) {
   return result.error ?? "Could not save changes. Please try again.";
-}
-
-function moveArrayItem<T extends object>(
-  items: T[],
-  fromIndex: number,
-  toIndex: number,
-) {
-  const nextItems = [...items];
-  const [movedItem] = nextItems.splice(fromIndex, 1);
-
-  if (!movedItem) {
-    return items;
-  }
-
-  nextItems.splice(toIndex, 0, movedItem);
-
-  return nextItems;
-}
-
-function normalizePositions<T extends { position: number }>(items: T[]) {
-  return items.map((item, position) => ({
-    ...item,
-    position,
-  }));
 }
 
 export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
@@ -343,20 +330,14 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
     const listId = createBrowserId("list");
     const position = snapshot.lists.length;
 
-    setSnapshot((currentSnapshot) => ({
-      ...currentSnapshot,
-      lists: [
-        ...currentSnapshot.lists,
-        {
-          id: listId,
-          title: validation.title,
-          position,
-          createdAt: now,
-          updatedAt: now,
-          items: [],
-        },
-      ],
-    }));
+    setSnapshot(
+      createTodoListSnapshot(snapshot, {
+        id: listId,
+        now,
+        position,
+        title: validation.title,
+      }),
+    );
     setSelectedListId(listId);
     setListTitle("");
     setListError("");
@@ -398,28 +379,15 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
     const itemId = createBrowserId("item");
     const position = targetList.items.length;
 
-    setSnapshot((currentSnapshot) => ({
-      ...currentSnapshot,
-      lists: currentSnapshot.lists.map((list) =>
-        list.id === listId
-          ? {
-              ...list,
-              updatedAt: now,
-              items: [
-                ...list.items,
-                {
-                  id: itemId,
-                  title: validation.title,
-                  position,
-                  isDone: false,
-                  createdAt: now,
-                  updatedAt: now,
-                },
-              ],
-            }
-          : list,
-      ),
-    }));
+    setSnapshot(
+      createTodoItemSnapshot(snapshot, {
+        id: itemId,
+        listId,
+        now,
+        position,
+        title: validation.title,
+      }),
+    );
     setItemTitles((currentTitles) => ({ ...currentTitles, [listId]: "" }));
     setItemErrors((currentErrors) => ({ ...currentErrors, [listId]: "" }));
     enqueueSyncOperation({
@@ -447,32 +415,18 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
       return;
     }
 
-    setSnapshot((currentSnapshot) => {
-      const now = new Date().toISOString();
+    const now = new Date().toISOString();
 
-      return {
-        ...currentSnapshot,
-        lists: currentSnapshot.lists.map((list) =>
-          list.id === listId
-            ? {
-                ...list,
-                updatedAt: now,
-                items: list.items.map((item) =>
-                  item.id === itemId
-                    ? {
-                        ...item,
-                        isDone,
-                        updatedAt: now,
-                      }
-                    : item,
-                ),
-              }
-            : list,
-        ),
-      };
-    });
+    setSnapshot(
+      setTodoItemDoneSnapshot(snapshot, {
+        isDone,
+        itemId,
+        listId,
+        now,
+      }),
+    );
     enqueueSyncOperation({
-      createdAt: new Date().toISOString(),
+      createdAt: now,
       id: createSyncOperationId(),
       payload: {
         id: itemId,
@@ -502,28 +456,21 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
       return;
     }
 
-    setSnapshot((currentSnapshot) => {
-      const now = new Date().toISOString();
+    const now = new Date().toISOString();
 
-      return {
-        ...currentSnapshot,
-        lists: currentSnapshot.lists.map((list) =>
-          list.id === listId
-            ? {
-                ...list,
-                title: validation.title,
-                updatedAt: now,
-              }
-            : list,
-        ),
-      };
-    });
+    setSnapshot(
+      setTodoListTitleSnapshot(snapshot, {
+        listId,
+        now,
+        title: validation.title,
+      }),
+    );
     setListRenameErrors((currentErrors) => ({
       ...currentErrors,
       [listId]: "",
     }));
     enqueueSyncOperation({
-      createdAt: new Date().toISOString(),
+      createdAt: now,
       id: createSyncOperationId(),
       payload: {
         id: listId,
@@ -554,36 +501,22 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
       return;
     }
 
-    setSnapshot((currentSnapshot) => {
-      const now = new Date().toISOString();
+    const now = new Date().toISOString();
 
-      return {
-        ...currentSnapshot,
-        lists: currentSnapshot.lists.map((list) =>
-          list.id === listId
-            ? {
-                ...list,
-                updatedAt: now,
-                items: list.items.map((item) =>
-                  item.id === itemId
-                    ? {
-                        ...item,
-                        title: validation.title,
-                        updatedAt: now,
-                      }
-                    : item,
-                ),
-              }
-            : list,
-        ),
-      };
-    });
+    setSnapshot(
+      setTodoItemTitleSnapshot(snapshot, {
+        itemId,
+        listId,
+        now,
+        title: validation.title,
+      }),
+    );
     setItemRenameErrors((currentErrors) => ({
       ...currentErrors,
       [itemId]: "",
     }));
     enqueueSyncOperation({
-      createdAt: new Date().toISOString(),
+      createdAt: now,
       id: createSyncOperationId(),
       payload: {
         id: itemId,
@@ -610,10 +543,7 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
           null)
         : selectedListId;
 
-    setSnapshot((currentSnapshot) => ({
-      ...currentSnapshot,
-      lists: currentSnapshot.lists.filter((list) => list.id !== listId),
-    }));
+    setSnapshot(deleteTodoListSnapshot(snapshot, { listId }));
     setSelectedListId(nextSelectedListId);
     setItemTitles((currentTitles) => {
       const { [listId]: _deletedListTitle, ...remainingTitles } =
@@ -659,29 +589,16 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
       return;
     }
 
-    setSnapshot((currentSnapshot) => {
-      const now = new Date().toISOString();
+    const now = new Date().toISOString();
 
-      return {
-        ...currentSnapshot,
-        lists: currentSnapshot.lists.map((list) =>
-          list.id === listId
-            ? {
-                ...list,
-                updatedAt: now,
-                items: list.items.filter((item) => item.id !== itemId),
-              }
-            : list,
-        ),
-      };
-    });
+    setSnapshot(deleteTodoItemSnapshot(snapshot, { itemId, listId, now }));
     setItemRenameErrors((currentErrors) => {
       const { [itemId]: _deletedItemError, ...remainingErrors } =
         currentErrors;
       return remainingErrors;
     });
     enqueueSyncOperation({
-      createdAt: new Date().toISOString(),
+      createdAt: now,
       id: createSyncOperationId(),
       payload: {
         id: itemId,
@@ -703,19 +620,17 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
       return;
     }
 
-    const lists = normalizePositions(
-      moveArrayItem(snapshot.lists, currentIndex, nextIndex),
-    );
+    const nextSnapshot = reorderTodoListsSnapshot(snapshot, {
+      direction,
+      listId,
+    });
 
-    setSnapshot((currentSnapshot) => ({
-      ...currentSnapshot,
-      lists,
-    }));
+    setSnapshot(nextSnapshot);
     enqueueSyncOperation({
       createdAt: new Date().toISOString(),
       id: createSyncOperationId(),
       payload: {
-        lists: lists.map((list) => ({
+        lists: nextSnapshot.lists.map((list) => ({
           id: list.id,
           position: list.position,
         })),
@@ -744,27 +659,21 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
     }
 
     const now = new Date().toISOString();
-    const items = normalizePositions(
-      moveArrayItem(targetList.items, currentIndex, nextIndex),
-    );
+    const nextSnapshot = reorderTodoItemsSnapshot(snapshot, {
+      direction,
+      itemId,
+      listId,
+      now,
+    });
+    const nextItems =
+      nextSnapshot.lists.find((list) => list.id === listId)?.items ?? [];
 
-    setSnapshot((currentSnapshot) => ({
-      ...currentSnapshot,
-      lists: currentSnapshot.lists.map((list) =>
-        list.id === listId
-          ? {
-              ...list,
-              updatedAt: now,
-              items,
-            }
-          : list,
-      ),
-    }));
+    setSnapshot(nextSnapshot);
     enqueueSyncOperation({
       createdAt: now,
       id: createSyncOperationId(),
       payload: {
-        items: items.map((item) => ({
+        items: nextItems.map((item) => ({
           id: item.id,
           position: item.position,
         })),
