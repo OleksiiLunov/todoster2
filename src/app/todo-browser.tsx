@@ -161,11 +161,36 @@ function readStoredTodoSnapshot() {
     return null;
   }
 
+  return parseTodoSnapshot(rawSnapshot);
+}
+
+function parseTodoSnapshot(rawSnapshot: string) {
   try {
     const parsedSnapshot: unknown = JSON.parse(rawSnapshot);
     return isTodoSnapshot(parsedSnapshot) ? parsedSnapshot : null;
   } catch {
     return null;
+  }
+}
+
+function stringifyTodoSnapshot(snapshot: TodoSnapshot) {
+  return JSON.stringify(snapshot);
+}
+
+function writeTodoSnapshot(snapshot: TodoSnapshot) {
+  const serializedSnapshot = stringifyTodoSnapshot(snapshot);
+
+  window.localStorage.setItem(TODO_SNAPSHOT_STORAGE_KEY, serializedSnapshot);
+
+  return serializedSnapshot;
+}
+
+function parseSyncQueue(rawQueue: string) {
+  try {
+    const parsedQueue: unknown = JSON.parse(rawQueue);
+    return Array.isArray(parsedQueue) ? parsedQueue.filter(isSyncOperation) : [];
+  } catch {
+    return [];
   }
 }
 
@@ -223,12 +248,7 @@ function readSyncQueue() {
     return [];
   }
 
-  try {
-    const parsedQueue: unknown = JSON.parse(rawQueue);
-    return Array.isArray(parsedQueue) ? parsedQueue.filter(isSyncOperation) : [];
-  } catch {
-    return [];
-  }
+  return parseSyncQueue(rawQueue);
 }
 
 function writeSyncQueue(queue: SyncOperation[]) {
@@ -272,6 +292,10 @@ function readStoredBrowserSessionMarker() {
     return null;
   }
 
+  return parseBrowserSessionMarker(rawMarker);
+}
+
+function parseBrowserSessionMarker(rawMarker: string) {
   try {
     const parsedMarker: unknown = JSON.parse(rawMarker);
     return isBrowserSessionMarker(parsedMarker) ? parsedMarker : null;
@@ -325,6 +349,7 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
   >({});
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
   const isDispatchingQueue = useRef(false);
+  const lastWrittenSnapshotJson = useRef("");
 
   useEffect(() => {
     const now = Date.now();
@@ -334,10 +359,7 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
     const initialSnapshot = storedSnapshot ?? bootstrap;
 
     setSnapshot(initialSnapshot);
-    window.localStorage.setItem(
-      TODO_SNAPSHOT_STORAGE_KEY,
-      JSON.stringify(initialSnapshot),
-    );
+    lastWrittenSnapshotJson.current = writeTodoSnapshot(initialSnapshot);
     writeBrowserSessionMarker({
       startedAt: sessionIsActive && sessionMarker ? sessionMarker.startedAt : now,
       lastSeenAt: now,
@@ -372,10 +394,14 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
       return;
     }
 
-    window.localStorage.setItem(
-      TODO_SNAPSHOT_STORAGE_KEY,
-      JSON.stringify(snapshot),
-    );
+    const serializedSnapshot = stringifyTodoSnapshot(snapshot);
+
+    if (serializedSnapshot === lastWrittenSnapshotJson.current) {
+      return;
+    }
+
+    window.localStorage.setItem(TODO_SNAPSHOT_STORAGE_KEY, serializedSnapshot);
+    lastWrittenSnapshotJson.current = serializedSnapshot;
   }, [isInitialized, snapshot]);
 
   useEffect(() => {
@@ -384,6 +410,69 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
     }
 
     void processSyncQueue();
+  }, [isInitialized]);
+
+  useEffect(() => {
+    if (!isInitialized) {
+      return;
+    }
+
+    function handleStorageEvent(event: StorageEvent) {
+      if (event.storageArea !== window.localStorage || !event.key) {
+        return;
+      }
+
+      if (event.key === TODO_SNAPSHOT_STORAGE_KEY) {
+        if (!event.newValue || event.newValue === lastWrittenSnapshotJson.current) {
+          return;
+        }
+
+        const nextSnapshot = parseTodoSnapshot(event.newValue);
+
+        if (!nextSnapshot) {
+          return;
+        }
+
+        lastWrittenSnapshotJson.current = event.newValue;
+        setSnapshot(nextSnapshot);
+        setSelectedListId((currentSelectedListId) => {
+          if (
+            currentSelectedListId &&
+            nextSnapshot.lists.some((list) => list.id === currentSelectedListId)
+          ) {
+            return currentSelectedListId;
+          }
+
+          return nextSnapshot.lists[0]?.id ?? null;
+        });
+        return;
+      }
+
+      if (event.key === TODO_SYNC_QUEUE_STORAGE_KEY) {
+        if (!event.newValue) {
+          return;
+        }
+
+        const queue = parseSyncQueue(event.newValue);
+
+        if (queue.length === 0) {
+          return;
+        }
+
+        void processSyncQueue();
+        return;
+      }
+
+      if (event.key === TODO_SESSION_MARKER_STORAGE_KEY && event.newValue) {
+        parseBrowserSessionMarker(event.newValue);
+      }
+    }
+
+    window.addEventListener("storage", handleStorageEvent);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageEvent);
+    };
   }, [isInitialized]);
 
   const totalItems = snapshot.lists.reduce(
