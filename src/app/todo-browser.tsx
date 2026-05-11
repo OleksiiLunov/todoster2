@@ -1,13 +1,6 @@
 "use client";
 
 import { type FormEvent, useEffect, useRef, useState } from "react";
-import {
-  createTodoItem,
-  createTodoList,
-  setTodoItemDone as persistTodoItemDone,
-  setTodoItemTitle as persistTodoItemTitle,
-  setTodoListTitle as persistTodoListTitle,
-} from "@/app/actions/todos";
 import { TodoHeader } from "@/app/todos/todo-header";
 import { TodoListPanel } from "@/app/todos/todo-list-panel";
 import { TodoPanel } from "@/app/todos/todo-panel";
@@ -27,6 +20,7 @@ import {
   touchBrowserSessionMarker,
   writeBrowserSessionMarker,
 } from "@/lib/todos/browser-session-storage";
+import { dispatchSyncOperation } from "@/lib/todos/sync-operation-dispatch";
 import {
   TODO_SYNC_QUEUE_STORAGE_KEY,
   createSyncOperationId,
@@ -67,21 +61,6 @@ function validateTitle(title: string) {
   }
 
   return { title: trimmedTitle, error: "" };
-}
-
-async function dispatchSyncOperation(operation: SyncOperation) {
-  switch (operation.type) {
-    case "createTodoList":
-      return createTodoList(operation.payload);
-    case "createTodoItem":
-      return createTodoItem(operation.payload);
-    case "setTodoItemDone":
-      return persistTodoItemDone(operation.payload);
-    case "setTodoListTitle":
-      return persistTodoListTitle(operation.payload);
-    case "setTodoItemTitle":
-      return persistTodoItemTitle(operation.payload);
-  }
 }
 
 function getPersistenceErrorMessage(result: PersistenceResult) {
