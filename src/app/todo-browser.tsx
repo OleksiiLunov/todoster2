@@ -11,13 +11,32 @@ import {
 import { TodoHeader } from "@/app/todos/todo-header";
 import { TodoListPanel } from "@/app/todos/todo-list-panel";
 import { TodoPanel } from "@/app/todos/todo-panel";
+import {
+  TODO_SNAPSHOT_STORAGE_KEY,
+  parseTodoSnapshot,
+  readStoredTodoSnapshot,
+  stringifyTodoSnapshot,
+  writeTodoSnapshot,
+} from "@/lib/todos/browser-snapshot-storage";
+import {
+  TODO_SESSION_HEARTBEAT_MS,
+  TODO_SESSION_MARKER_STORAGE_KEY,
+  isBrowserSessionActive,
+  parseBrowserSessionMarker,
+  readStoredBrowserSessionMarker,
+  touchBrowserSessionMarker,
+  writeBrowserSessionMarker,
+} from "@/lib/todos/browser-session-storage";
+import {
+  TODO_SYNC_QUEUE_STORAGE_KEY,
+  createSyncOperationId,
+  parseSyncQueue,
+  readSyncQueue,
+  type SyncOperation,
+  writeSyncQueue,
+} from "@/lib/todos/sync-queue-storage";
 import type { TodoSnapshot } from "@/lib/todos/types";
 
-const TODO_SNAPSHOT_STORAGE_KEY = "todoster:snapshot:v1";
-const TODO_SYNC_QUEUE_STORAGE_KEY = "todoster:sync-queue:v1";
-const TODO_SESSION_MARKER_STORAGE_KEY = "todoster:browser-session:v1";
-const TODO_SESSION_TTL_MS = 30 * 60 * 1000;
-const TODO_SESSION_HEARTBEAT_MS = 30 * 1000;
 export const MAX_TODO_TITLE_LENGTH = 120;
 
 type PersistenceResult = {
@@ -25,71 +44,12 @@ type PersistenceResult = {
   ok: boolean;
 };
 
-type SyncOperation =
-  | {
-      createdAt: string;
-      id: string;
-      payload: {
-        id: string;
-        position: number;
-        title: string;
-      };
-      type: "createTodoList";
-    }
-  | {
-      createdAt: string;
-      id: string;
-      payload: {
-        id: string;
-        listId: string;
-        position: number;
-        title: string;
-      };
-      type: "createTodoItem";
-    }
-  | {
-      createdAt: string;
-      id: string;
-      payload: {
-        id: string;
-        isDone: boolean;
-      };
-      type: "setTodoItemDone";
-    }
-  | {
-      createdAt: string;
-      id: string;
-      payload: {
-        id: string;
-        title: string;
-      };
-      type: "setTodoListTitle";
-    }
-  | {
-      createdAt: string;
-      id: string;
-      payload: {
-        id: string;
-        title: string;
-      };
-      type: "setTodoItemTitle";
-    };
-
 type TodoBrowserProps = {
   bootstrap: TodoSnapshot;
 };
 
-type BrowserSessionMarker = {
-  startedAt: number;
-  lastSeenAt: number;
-};
-
 function createBrowserId(prefix: "list" | "item") {
   return `${prefix}_${crypto.randomUUID()}`;
-}
-
-function createSyncOperationId() {
-  return `sync_${crypto.randomUUID()}`;
 }
 
 function validateTitle(title: string) {
@@ -109,155 +69,6 @@ function validateTitle(title: string) {
   return { title: trimmedTitle, error: "" };
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function isTodoSnapshot(value: unknown): value is TodoSnapshot {
-  if (!isRecord(value)) {
-    return false;
-  }
-
-  if (
-    typeof value.userId !== "string" ||
-    typeof value.bootstrappedAt !== "string" ||
-    !Array.isArray(value.lists)
-  ) {
-    return false;
-  }
-
-  return value.lists.every((list) => {
-    if (!isRecord(list) || !Array.isArray(list.items)) {
-      return false;
-    }
-
-    const hasValidListShape =
-      typeof list.id === "string" &&
-      typeof list.title === "string" &&
-      typeof list.position === "number" &&
-      typeof list.createdAt === "string" &&
-      typeof list.updatedAt === "string";
-
-    return (
-      hasValidListShape &&
-      list.items.every(
-        (item) =>
-          isRecord(item) &&
-          typeof item.id === "string" &&
-          typeof item.title === "string" &&
-          typeof item.position === "number" &&
-          typeof item.isDone === "boolean" &&
-          typeof item.createdAt === "string" &&
-          typeof item.updatedAt === "string",
-      )
-    );
-  });
-}
-
-function readStoredTodoSnapshot() {
-  const rawSnapshot = window.localStorage.getItem(TODO_SNAPSHOT_STORAGE_KEY);
-
-  if (!rawSnapshot) {
-    return null;
-  }
-
-  return parseTodoSnapshot(rawSnapshot);
-}
-
-function parseTodoSnapshot(rawSnapshot: string) {
-  try {
-    const parsedSnapshot: unknown = JSON.parse(rawSnapshot);
-    return isTodoSnapshot(parsedSnapshot) ? parsedSnapshot : null;
-  } catch {
-    return null;
-  }
-}
-
-function stringifyTodoSnapshot(snapshot: TodoSnapshot) {
-  return JSON.stringify(snapshot);
-}
-
-function writeTodoSnapshot(snapshot: TodoSnapshot) {
-  const serializedSnapshot = stringifyTodoSnapshot(snapshot);
-
-  window.localStorage.setItem(TODO_SNAPSHOT_STORAGE_KEY, serializedSnapshot);
-
-  return serializedSnapshot;
-}
-
-function parseSyncQueue(rawQueue: string) {
-  try {
-    const parsedQueue: unknown = JSON.parse(rawQueue);
-    return Array.isArray(parsedQueue) ? parsedQueue.filter(isSyncOperation) : [];
-  } catch {
-    return [];
-  }
-}
-
-function isValidPosition(value: unknown) {
-  return typeof value === "number" && Number.isInteger(value) && value >= 0;
-}
-
-function isNonEmptyString(value: unknown) {
-  return typeof value === "string" && value.length > 0;
-}
-
-function isSyncOperation(value: unknown): value is SyncOperation {
-  if (!isRecord(value) || !isNonEmptyString(value.id) || !isNonEmptyString(value.createdAt)) {
-    return false;
-  }
-
-  if (!isNonEmptyString(value.type) || !isRecord(value.payload)) {
-    return false;
-  }
-
-  switch (value.type) {
-    case "createTodoList":
-      return (
-        isNonEmptyString(value.payload.id) &&
-        isValidPosition(value.payload.position) &&
-        isNonEmptyString(value.payload.title)
-      );
-    case "createTodoItem":
-      return (
-        isNonEmptyString(value.payload.id) &&
-        isNonEmptyString(value.payload.listId) &&
-        isValidPosition(value.payload.position) &&
-        isNonEmptyString(value.payload.title)
-      );
-    case "setTodoItemDone":
-      return (
-        isNonEmptyString(value.payload.id) &&
-        typeof value.payload.isDone === "boolean"
-      );
-    case "setTodoListTitle":
-    case "setTodoItemTitle":
-      return (
-        isNonEmptyString(value.payload.id) &&
-        isNonEmptyString(value.payload.title)
-      );
-    default:
-      return false;
-  }
-}
-
-function readSyncQueue() {
-  const rawQueue = window.localStorage.getItem(TODO_SYNC_QUEUE_STORAGE_KEY);
-
-  if (!rawQueue) {
-    return [];
-  }
-
-  return parseSyncQueue(rawQueue);
-}
-
-function writeSyncQueue(queue: SyncOperation[]) {
-  window.localStorage.setItem(
-    TODO_SYNC_QUEUE_STORAGE_KEY,
-    JSON.stringify(queue),
-  );
-}
-
 async function dispatchSyncOperation(operation: SyncOperation) {
   switch (operation.type) {
     case "createTodoList":
@@ -271,62 +82,6 @@ async function dispatchSyncOperation(operation: SyncOperation) {
     case "setTodoItemTitle":
       return persistTodoItemTitle(operation.payload);
   }
-}
-
-function isBrowserSessionMarker(value: unknown): value is BrowserSessionMarker {
-  return (
-    isRecord(value) &&
-    typeof value.startedAt === "number" &&
-    typeof value.lastSeenAt === "number" &&
-    Number.isFinite(value.startedAt) &&
-    Number.isFinite(value.lastSeenAt) &&
-    value.startedAt > 0 &&
-    value.lastSeenAt >= value.startedAt
-  );
-}
-
-function readStoredBrowserSessionMarker() {
-  const rawMarker = window.localStorage.getItem(TODO_SESSION_MARKER_STORAGE_KEY);
-
-  if (!rawMarker) {
-    return null;
-  }
-
-  return parseBrowserSessionMarker(rawMarker);
-}
-
-function parseBrowserSessionMarker(rawMarker: string) {
-  try {
-    const parsedMarker: unknown = JSON.parse(rawMarker);
-    return isBrowserSessionMarker(parsedMarker) ? parsedMarker : null;
-  } catch {
-    return null;
-  }
-}
-
-function isBrowserSessionActive(
-  marker: BrowserSessionMarker | null,
-  now: number,
-) {
-  return Boolean(marker && now - marker.lastSeenAt <= TODO_SESSION_TTL_MS);
-}
-
-function writeBrowserSessionMarker(marker: BrowserSessionMarker) {
-  window.localStorage.setItem(
-    TODO_SESSION_MARKER_STORAGE_KEY,
-    JSON.stringify(marker),
-  );
-}
-
-function touchBrowserSessionMarker() {
-  const now = Date.now();
-  const marker = readStoredBrowserSessionMarker();
-  const markerIsActive = isBrowserSessionActive(marker, now);
-
-  writeBrowserSessionMarker({
-    startedAt: markerIsActive && marker ? marker.startedAt : now,
-    lastSeenAt: now,
-  });
 }
 
 function getPersistenceErrorMessage(result: PersistenceResult) {
