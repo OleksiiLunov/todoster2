@@ -1,4 +1,4 @@
-import { TodoBrowser } from "@/app/todo-browser";
+import { TodoBrowser } from "@/features/todos/todo-browser";
 import { loadTodoBootstrap } from "@/lib/todos/bootstrap";
 
 export const dynamic = "force-dynamic";

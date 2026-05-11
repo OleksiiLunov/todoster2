@@ -1,8 +1,8 @@
 "use client";
 
 import type { FormEvent } from "react";
-import { CreateItemForm } from "@/app/todos/create-item-form";
-import { TodoItemRow } from "@/app/todos/todo-item-row";
+import { CreateItemForm } from "@/features/todos/components/create-item-form";
+import { TodoItemRow } from "@/features/todos/components/todo-item-row";
 import type { TodoListSnapshot } from "@/lib/todos/types";
 
 type TodoPanelProps = {

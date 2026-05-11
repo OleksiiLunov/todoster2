@@ -1,5 +1,5 @@
 import type { FormEvent } from "react";
-import { CreateListForm } from "@/app/todos/create-list-form";
+import { CreateListForm } from "@/features/todos/components/create-list-form";
 import type { TodoListSnapshot } from "@/lib/todos/types";
 
 type TodoListPanelProps = {

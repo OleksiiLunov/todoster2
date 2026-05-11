@@ -1,9 +1,9 @@
 "use client";
 
 import { type FormEvent, useEffect, useRef, useState } from "react";
-import { TodoHeader } from "@/app/todos/todo-header";
-import { TodoListPanel } from "@/app/todos/todo-list-panel";
-import { TodoPanel } from "@/app/todos/todo-panel";
+import { TodoHeader } from "@/features/todos/components/todo-header";
+import { TodoListPanel } from "@/features/todos/components/todo-list-panel";
+import { TodoPanel } from "@/features/todos/components/todo-panel";
 import {
   TODO_SNAPSHOT_STORAGE_KEY,
   parseTodoSnapshot,
