@@ -16,6 +16,7 @@ type TodoPanelProps = {
   onDeleteTodoList?: () => void;
   onItemSubmit?: (event: FormEvent<HTMLFormElement>) => void;
   onItemTitleChange?: (title: string) => void;
+  onMoveTodoItem?: (itemId: string, direction: "down" | "up") => void;
   onSetTodoDone?: (itemId: string, isDone: boolean) => void;
   onSetTodoItemTitle?: (itemId: string, title: string) => void;
   onSetTodoListTitle?: (title: string) => void;
@@ -34,6 +35,7 @@ export function TodoPanel({
   onDeleteTodoList,
   onItemSubmit,
   onItemTitleChange,
+  onMoveTodoItem,
   onSetTodoDone,
   onSetTodoItemTitle,
   onSetTodoListTitle,
@@ -46,6 +48,7 @@ export function TodoPanel({
     !onDeleteTodoList ||
     !onItemSubmit ||
     !onItemTitleChange ||
+    !onMoveTodoItem ||
     !onSetTodoDone ||
     !onSetTodoItemTitle ||
     !onSetTodoListTitle ||
@@ -118,12 +121,16 @@ export function TodoPanel({
         <p className="mt-6 text-sm text-zinc-500">No todos yet.</p>
       ) : (
         <ul className="mt-6 divide-y divide-zinc-100">
-          {list.items.map((item) => (
+          {list.items.map((item, index) => (
             <TodoItemRow
               item={item}
               key={item.id}
               maxTitleLength={maxTitleLength}
+              moveDownDisabled={index === list.items.length - 1}
+              moveUpDisabled={index === 0}
               onDelete={() => onDeleteTodoItem(item.id)}
+              onMoveDown={() => onMoveTodoItem(item.id, "down")}
+              onMoveUp={() => onMoveTodoItem(item.id, "up")}
               onRenameTitleInput={() => onTodoItemTitleInput(item.id)}
               onSetDone={(isDone) => onSetTodoDone(item.id, isDone)}
               onSetTitle={(title) => onSetTodoItemTitle(item.id, title)}

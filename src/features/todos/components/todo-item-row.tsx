@@ -5,7 +5,11 @@ import type { TodoItemSnapshot } from "@/lib/todos/types";
 type TodoItemRowProps = {
   item: TodoItemSnapshot;
   maxTitleLength: number;
+  moveDownDisabled: boolean;
+  moveUpDisabled: boolean;
   onDelete: () => void;
+  onMoveDown: () => void;
+  onMoveUp: () => void;
   onRenameTitleInput: () => void;
   onSetDone: (isDone: boolean) => void;
   onSetTitle: (title: string) => void;
@@ -15,7 +19,11 @@ type TodoItemRowProps = {
 export function TodoItemRow({
   item,
   maxTitleLength,
+  moveDownDisabled,
+  moveUpDisabled,
   onDelete,
+  onMoveDown,
+  onMoveUp,
   onRenameTitleInput,
   onSetDone,
   onSetTitle,
@@ -61,6 +69,22 @@ export function TodoItemRow({
             type="button"
           >
             Delete
+          </button>
+          <button
+            className="h-9 rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
+            disabled={moveUpDisabled}
+            onClick={onMoveUp}
+            type="button"
+          >
+            Up
+          </button>
+          <button
+            className="h-9 rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
+            disabled={moveDownDisabled}
+            onClick={onMoveDown}
+            type="button"
+          >
+            Down
           </button>
         </div>
         {renameError ? (

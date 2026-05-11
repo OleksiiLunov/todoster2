@@ -46,6 +46,20 @@ type DeleteTodoItemInput = {
   id: string;
 };
 
+type TodoPositionInput = {
+  id: string;
+  position: number;
+};
+
+type SetTodoListPositionsInput = {
+  lists: TodoPositionInput[];
+};
+
+type SetTodoItemPositionsInput = {
+  items: TodoPositionInput[];
+  listId: string;
+};
+
 function validateId(value: unknown, label: string) {
   if (typeof value !== "string" || value.trim().length === 0) {
     return `${label} is required.`;
@@ -61,6 +75,34 @@ function validateId(value: unknown, label: string) {
 function validatePosition(value: unknown) {
   if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
     return "Position must be a non-negative integer.";
+  }
+
+  return "";
+}
+
+function validatePositions(values: TodoPositionInput[], label: string) {
+  if (!Array.isArray(values)) {
+    return `${label} positions are required.`;
+  }
+
+  const ids = new Set<string>();
+
+  for (const value of values) {
+    const idError = validateId(value.id, label);
+    if (idError) {
+      return idError;
+    }
+
+    const positionError = validatePosition(value.position);
+    if (positionError) {
+      return positionError;
+    }
+
+    if (ids.has(value.id)) {
+      return `${label} positions must not contain duplicates.`;
+    }
+
+    ids.add(value.id);
   }
 
   return "";
@@ -355,6 +397,72 @@ export async function deleteTodoItem(
         },
       },
     });
+
+    return { ok: true };
+  } catch {
+    return persistenceError();
+  }
+}
+
+export async function setTodoListPositions(
+  input: SetTodoListPositionsInput,
+): Promise<PersistenceResult> {
+  const positionsError = validatePositions(input.lists, "List");
+  if (positionsError) {
+    return validationError(positionsError);
+  }
+
+  try {
+    await prisma.$transaction(
+      input.lists.map((list) =>
+        prisma.todoList.updateMany({
+          data: {
+            position: list.position,
+          },
+          where: {
+            id: list.id,
+            userId: TEMP_USER_ID,
+          },
+        }),
+      ),
+    );
+
+    return { ok: true };
+  } catch {
+    return persistenceError();
+  }
+}
+
+export async function setTodoItemPositions(
+  input: SetTodoItemPositionsInput,
+): Promise<PersistenceResult> {
+  const listIdError = validateId(input.listId, "List id");
+  if (listIdError) {
+    return validationError(listIdError);
+  }
+
+  const positionsError = validatePositions(input.items, "Todo");
+  if (positionsError) {
+    return validationError(positionsError);
+  }
+
+  try {
+    await prisma.$transaction(
+      input.items.map((item) =>
+        prisma.todoItem.updateMany({
+          data: {
+            position: item.position,
+          },
+          where: {
+            id: item.id,
+            listId: input.listId,
+            list: {
+              userId: TEMP_USER_ID,
+            },
+          },
+        }),
+      ),
+    );
 
     return { ok: true };
   } catch {

@@ -3,8 +3,10 @@ import {
   createTodoList,
   deleteTodoItem,
   deleteTodoList,
+  setTodoItemPositions,
   setTodoItemDone,
   setTodoItemTitle,
+  setTodoListPositions,
   setTodoListTitle,
 } from "@/app/actions/todos";
 import type { SyncOperation } from "@/lib/todos/sync-queue-storage";
@@ -25,5 +27,9 @@ export async function dispatchSyncOperation(operation: SyncOperation) {
       return deleteTodoList(operation.payload);
     case "deleteTodoItem":
       return deleteTodoItem(operation.payload);
+    case "setTodoListPositions":
+      return setTodoListPositions(operation.payload);
+    case "setTodoItemPositions":
+      return setTodoItemPositions(operation.payload);
   }
 }

@@ -64,6 +64,29 @@ export type SyncOperation =
         id: string;
       };
       type: "deleteTodoItem";
+    }
+  | {
+      createdAt: string;
+      id: string;
+      payload: {
+        lists: Array<{
+          id: string;
+          position: number;
+        }>;
+      };
+      type: "setTodoListPositions";
+    }
+  | {
+      createdAt: string;
+      id: string;
+      payload: {
+        items: Array<{
+          id: string;
+          position: number;
+        }>;
+        listId: string;
+      };
+      type: "setTodoItemPositions";
     };
 
 export function createSyncOperationId() {
@@ -123,6 +146,27 @@ function isSyncOperation(value: unknown): value is SyncOperation {
     case "deleteTodoList":
     case "deleteTodoItem":
       return isNonEmptyString(value.payload.id);
+    case "setTodoListPositions":
+      return (
+        Array.isArray(value.payload.lists) &&
+        value.payload.lists.every(
+          (list) =>
+            isRecord(list) &&
+            isNonEmptyString(list.id) &&
+            isValidPosition(list.position),
+        )
+      );
+    case "setTodoItemPositions":
+      return (
+        isNonEmptyString(value.payload.listId) &&
+        Array.isArray(value.payload.items) &&
+        value.payload.items.every(
+          (item) =>
+            isRecord(item) &&
+            isNonEmptyString(item.id) &&
+            isValidPosition(item.position),
+        )
+      );
     default:
       return false;
   }

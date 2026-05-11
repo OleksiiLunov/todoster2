@@ -9,6 +9,7 @@ type TodoListPanelProps = {
   maxTitleLength: number;
   onCreateListSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onCreateListTitleChange: (title: string) => void;
+  onMoveTodoList: (listId: string, direction: "down" | "up") => void;
   onSelectList: (listId: string) => void;
   selectedListId: string | null;
 };
@@ -20,6 +21,7 @@ export function TodoListPanel({
   maxTitleLength,
   onCreateListSubmit,
   onCreateListTitleChange,
+  onMoveTodoList,
   onSelectList,
   selectedListId,
 }: TodoListPanelProps) {
@@ -53,14 +55,14 @@ export function TodoListPanel({
         </div>
       ) : (
         <ul className="mt-3 flex flex-col gap-2">
-          {lists.map((list) => {
+          {lists.map((list, index) => {
             const isSelected = list.id === selectedListId;
 
             return (
-              <li key={list.id}>
+              <li className="flex gap-2" key={list.id}>
                 <button
                   aria-current={isSelected ? "true" : undefined}
-                  className={`flex w-full items-center justify-between gap-3 rounded-md border px-3 py-3 text-left transition ${
+                  className={`flex min-w-0 flex-1 items-center justify-between gap-3 rounded-md border px-3 py-3 text-left transition ${
                     isSelected
                       ? "border-zinc-950 bg-zinc-950 text-white"
                       : "border-transparent text-zinc-800 hover:border-zinc-200 hover:bg-zinc-50"
@@ -79,6 +81,26 @@ export function TodoListPanel({
                     {list.items.length}
                   </span>
                 </button>
+                <div className="flex shrink-0 flex-col gap-1">
+                  <button
+                    aria-label={`Move ${list.title} up`}
+                    className="h-7 rounded-md border border-zinc-300 px-2 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    disabled={index === 0}
+                    onClick={() => onMoveTodoList(list.id, "up")}
+                    type="button"
+                  >
+                    Up
+                  </button>
+                  <button
+                    aria-label={`Move ${list.title} down`}
+                    className="h-7 rounded-md border border-zinc-300 px-2 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    disabled={index === lists.length - 1}
+                    onClick={() => onMoveTodoList(list.id, "down")}
+                    type="button"
+                  >
+                    Down
+                  </button>
+                </div>
               </li>
             );
           })}

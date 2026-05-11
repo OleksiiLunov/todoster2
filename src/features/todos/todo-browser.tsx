@@ -67,6 +67,30 @@ function getPersistenceErrorMessage(result: PersistenceResult) {
   return result.error ?? "Could not save changes. Please try again.";
 }
 
+function moveArrayItem<T extends object>(
+  items: T[],
+  fromIndex: number,
+  toIndex: number,
+) {
+  const nextItems = [...items];
+  const [movedItem] = nextItems.splice(fromIndex, 1);
+
+  if (!movedItem) {
+    return items;
+  }
+
+  nextItems.splice(toIndex, 0, movedItem);
+
+  return nextItems;
+}
+
+function normalizePositions<T extends { position: number }>(items: T[]) {
+  return items.map((item, position) => ({
+    ...item,
+    position,
+  }));
+}
+
 export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
   const [snapshot, setSnapshot] = useState<TodoSnapshot>(bootstrap);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -666,6 +690,90 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
     });
   }
 
+  function moveTodoList(listId: string, direction: "down" | "up") {
+    const currentIndex = snapshot.lists.findIndex((list) => list.id === listId);
+
+    if (currentIndex === -1) {
+      return;
+    }
+
+    const nextIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+
+    if (nextIndex < 0 || nextIndex >= snapshot.lists.length) {
+      return;
+    }
+
+    const lists = normalizePositions(
+      moveArrayItem(snapshot.lists, currentIndex, nextIndex),
+    );
+
+    setSnapshot((currentSnapshot) => ({
+      ...currentSnapshot,
+      lists,
+    }));
+    enqueueSyncOperation({
+      createdAt: new Date().toISOString(),
+      id: createSyncOperationId(),
+      payload: {
+        lists: lists.map((list) => ({
+          id: list.id,
+          position: list.position,
+        })),
+      },
+      type: "setTodoListPositions",
+    });
+  }
+
+  function moveTodoItem(
+    listId: string,
+    itemId: string,
+    direction: "down" | "up",
+  ) {
+    const targetList = snapshot.lists.find((list) => list.id === listId);
+    const currentIndex =
+      targetList?.items.findIndex((item) => item.id === itemId) ?? -1;
+
+    if (!targetList || currentIndex === -1) {
+      return;
+    }
+
+    const nextIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+
+    if (nextIndex < 0 || nextIndex >= targetList.items.length) {
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const items = normalizePositions(
+      moveArrayItem(targetList.items, currentIndex, nextIndex),
+    );
+
+    setSnapshot((currentSnapshot) => ({
+      ...currentSnapshot,
+      lists: currentSnapshot.lists.map((list) =>
+        list.id === listId
+          ? {
+              ...list,
+              updatedAt: now,
+              items,
+            }
+          : list,
+      ),
+    }));
+    enqueueSyncOperation({
+      createdAt: now,
+      id: createSyncOperationId(),
+      payload: {
+        items: items.map((item) => ({
+          id: item.id,
+          position: item.position,
+        })),
+        listId,
+      },
+      type: "setTodoItemPositions",
+    });
+  }
+
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-8 px-6 py-10 sm:px-10">
       <TodoHeader listCount={snapshot.lists.length} todoCount={totalItems} />
@@ -687,6 +795,7 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
             setListTitle(title);
             setListError("");
           }}
+          onMoveTodoList={moveTodoList}
           onSelectList={setSelectedListId}
           selectedListId={selectedListId}
         />
@@ -725,6 +834,12 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
                     [selectedList.id]: "",
                   }));
                 }
+              : undefined
+          }
+          onMoveTodoItem={
+            selectedList
+              ? (itemId, direction) =>
+                  moveTodoItem(selectedList.id, itemId, direction)
               : undefined
           }
           onSetTodoDone={
