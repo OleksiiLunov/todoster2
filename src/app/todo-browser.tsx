@@ -417,6 +417,44 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
       return;
     }
 
+    function retryPendingSyncQueue() {
+      if (readSyncQueue().length === 0) {
+        return;
+      }
+
+      void processSyncQueue();
+    }
+
+    function retryPendingSyncQueueWhenVisible() {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
+
+      retryPendingSyncQueue();
+    }
+
+    window.addEventListener("online", retryPendingSyncQueue);
+    window.addEventListener("focus", retryPendingSyncQueue);
+    document.addEventListener(
+      "visibilitychange",
+      retryPendingSyncQueueWhenVisible,
+    );
+
+    return () => {
+      window.removeEventListener("online", retryPendingSyncQueue);
+      window.removeEventListener("focus", retryPendingSyncQueue);
+      document.removeEventListener(
+        "visibilitychange",
+        retryPendingSyncQueueWhenVisible,
+      );
+    };
+  }, [isInitialized]);
+
+  useEffect(() => {
+    if (!isInitialized) {
+      return;
+    }
+
     function handleStorageEvent(event: StorageEvent) {
       if (event.storageArea !== window.localStorage || !event.key) {
         return;
@@ -498,18 +536,18 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
           return;
         }
 
-      const result = await dispatchSyncOperation(operation);
+        const result = await dispatchSyncOperation(operation);
 
-      if (result.ok) {
-        const nextQueue = readSyncQueue().filter(
-          (queuedOperation) => queuedOperation.id !== operation.id,
-        );
-        writeSyncQueue(nextQueue);
+        if (result.ok) {
+          const nextQueue = readSyncQueue().filter(
+            (queuedOperation) => queuedOperation.id !== operation.id,
+          );
+          writeSyncQueue(nextQueue);
           setSyncError("");
           continue;
-      }
+        }
 
-      setSyncError(getPersistenceErrorMessage(result));
+        setSyncError(getPersistenceErrorMessage(result));
         return;
       }
     } catch {
