@@ -12,6 +12,8 @@ type TodoPanelProps = {
   list: TodoListSnapshot | null;
   listRenameError: string;
   maxTitleLength: number;
+  onDeleteTodoItem?: (itemId: string) => void;
+  onDeleteTodoList?: () => void;
   onItemSubmit?: (event: FormEvent<HTMLFormElement>) => void;
   onItemTitleChange?: (title: string) => void;
   onSetTodoDone?: (itemId: string, isDone: boolean) => void;
@@ -28,6 +30,8 @@ export function TodoPanel({
   list,
   listRenameError,
   maxTitleLength,
+  onDeleteTodoItem,
+  onDeleteTodoList,
   onItemSubmit,
   onItemTitleChange,
   onSetTodoDone,
@@ -38,6 +42,8 @@ export function TodoPanel({
 }: TodoPanelProps) {
   if (
     !list ||
+    !onDeleteTodoItem ||
+    !onDeleteTodoList ||
     !onItemSubmit ||
     !onItemTitleChange ||
     !onSetTodoDone ||
@@ -82,6 +88,13 @@ export function TodoPanel({
             >
               Rename
             </button>
+            <button
+              className="h-10 rounded-md border border-red-200 px-3 text-sm font-medium text-red-700 transition hover:bg-red-50"
+              onClick={onDeleteTodoList}
+              type="button"
+            >
+              Delete list
+            </button>
           </form>
           {listRenameError ? (
             <p className="mt-2 text-sm text-red-600">{listRenameError}</p>
@@ -110,6 +123,7 @@ export function TodoPanel({
               item={item}
               key={item.id}
               maxTitleLength={maxTitleLength}
+              onDelete={() => onDeleteTodoItem(item.id)}
               onRenameTitleInput={() => onTodoItemTitleInput(item.id)}
               onSetDone={(isDone) => onSetTodoDone(item.id, isDone)}
               onSetTitle={(title) => onSetTodoItemTitle(item.id, title)}

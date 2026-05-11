@@ -38,6 +38,14 @@ type SetTodoItemTitleInput = {
   title: string;
 };
 
+type DeleteTodoListInput = {
+  id: string;
+};
+
+type DeleteTodoItemInput = {
+  id: string;
+};
+
 function validateId(value: unknown, label: string) {
   if (typeof value !== "string" || value.trim().length === 0) {
     return `${label} is required.`;
@@ -303,6 +311,52 @@ export async function setTodoItemTitle(
     return result.count === 1
       ? { ok: true }
       : validationError("Todo was not found.");
+  } catch {
+    return persistenceError();
+  }
+}
+
+export async function deleteTodoList(
+  input: DeleteTodoListInput,
+): Promise<PersistenceResult> {
+  const idError = validateId(input.id, "List id");
+  if (idError) {
+    return validationError(idError);
+  }
+
+  try {
+    await prisma.todoList.deleteMany({
+      where: {
+        id: input.id,
+        userId: TEMP_USER_ID,
+      },
+    });
+
+    return { ok: true };
+  } catch {
+    return persistenceError();
+  }
+}
+
+export async function deleteTodoItem(
+  input: DeleteTodoItemInput,
+): Promise<PersistenceResult> {
+  const idError = validateId(input.id, "Todo id");
+  if (idError) {
+    return validationError(idError);
+  }
+
+  try {
+    await prisma.todoItem.deleteMany({
+      where: {
+        id: input.id,
+        list: {
+          userId: TEMP_USER_ID,
+        },
+      },
+    });
+
+    return { ok: true };
   } catch {
     return persistenceError();
   }

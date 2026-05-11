@@ -48,6 +48,22 @@ export type SyncOperation =
         title: string;
       };
       type: "setTodoItemTitle";
+    }
+  | {
+      createdAt: string;
+      id: string;
+      payload: {
+        id: string;
+      };
+      type: "deleteTodoList";
+    }
+  | {
+      createdAt: string;
+      id: string;
+      payload: {
+        id: string;
+      };
+      type: "deleteTodoItem";
     };
 
 export function createSyncOperationId() {
@@ -104,6 +120,9 @@ function isSyncOperation(value: unknown): value is SyncOperation {
         isNonEmptyString(value.payload.id) &&
         isNonEmptyString(value.payload.title)
       );
+    case "deleteTodoList":
+    case "deleteTodoItem":
+      return isNonEmptyString(value.payload.id);
     default:
       return false;
   }

@@ -569,6 +569,103 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
     });
   }
 
+  function deleteTodoList(listId: string) {
+    const deletedListIndex = snapshot.lists.findIndex(
+      (list) => list.id === listId,
+    );
+
+    if (deletedListIndex === -1) {
+      return;
+    }
+
+    const remainingLists = snapshot.lists.filter((list) => list.id !== listId);
+    const nextSelectedListId =
+      selectedListId === listId
+        ? (remainingLists[deletedListIndex]?.id ??
+          remainingLists[deletedListIndex - 1]?.id ??
+          null)
+        : selectedListId;
+
+    setSnapshot((currentSnapshot) => ({
+      ...currentSnapshot,
+      lists: currentSnapshot.lists.filter((list) => list.id !== listId),
+    }));
+    setSelectedListId(nextSelectedListId);
+    setItemTitles((currentTitles) => {
+      const { [listId]: _deletedListTitle, ...remainingTitles } =
+        currentTitles;
+      return remainingTitles;
+    });
+    setItemErrors((currentErrors) => {
+      const { [listId]: _deletedListError, ...remainingErrors } =
+        currentErrors;
+      return remainingErrors;
+    });
+    setListRenameErrors((currentErrors) => {
+      const { [listId]: _deletedListError, ...remainingErrors } =
+        currentErrors;
+      return remainingErrors;
+    });
+    setItemRenameErrors((currentErrors) => {
+      const deletedItemIds = new Set(
+        snapshot.lists[deletedListIndex]?.items.map((item) => item.id) ?? [],
+      );
+
+      return Object.fromEntries(
+        Object.entries(currentErrors).filter(
+          ([itemId]) => !deletedItemIds.has(itemId),
+        ),
+      );
+    });
+    enqueueSyncOperation({
+      createdAt: new Date().toISOString(),
+      id: createSyncOperationId(),
+      payload: {
+        id: listId,
+      },
+      type: "deleteTodoList",
+    });
+  }
+
+  function deleteTodoItem(listId: string, itemId: string) {
+    const targetList = snapshot.lists.find((list) => list.id === listId);
+    const targetItem = targetList?.items.find((item) => item.id === itemId);
+
+    if (!targetList || !targetItem) {
+      return;
+    }
+
+    setSnapshot((currentSnapshot) => {
+      const now = new Date().toISOString();
+
+      return {
+        ...currentSnapshot,
+        lists: currentSnapshot.lists.map((list) =>
+          list.id === listId
+            ? {
+                ...list,
+                updatedAt: now,
+                items: list.items.filter((item) => item.id !== itemId),
+              }
+            : list,
+        ),
+      };
+    });
+    setItemRenameErrors((currentErrors) => {
+      const { [itemId]: _deletedItemError, ...remainingErrors } =
+        currentErrors;
+      return remainingErrors;
+    });
+    enqueueSyncOperation({
+      createdAt: new Date().toISOString(),
+      id: createSyncOperationId(),
+      payload: {
+        id: itemId,
+      },
+      type: "deleteTodoItem",
+    });
+  }
+
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-8 px-6 py-10 sm:px-10">
       <TodoHeader listCount={snapshot.lists.length} todoCount={totalItems} />
@@ -603,6 +700,14 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
             selectedList ? (listRenameErrors[selectedList.id] ?? "") : ""
           }
           maxTitleLength={MAX_TODO_TITLE_LENGTH}
+          onDeleteTodoItem={
+            selectedList
+              ? (itemId) => deleteTodoItem(selectedList.id, itemId)
+              : undefined
+          }
+          onDeleteTodoList={
+            selectedList ? () => deleteTodoList(selectedList.id) : undefined
+          }
           onItemSubmit={
             selectedList
               ? (event) => handleCreateItem(event, selectedList.id)

@@ -1,6 +1,8 @@
 import {
   createTodoItem,
   createTodoList,
+  deleteTodoItem,
+  deleteTodoList,
   setTodoItemDone,
   setTodoItemTitle,
   setTodoListTitle,
@@ -19,5 +21,9 @@ export async function dispatchSyncOperation(operation: SyncOperation) {
       return setTodoListTitle(operation.payload);
     case "setTodoItemTitle":
       return setTodoItemTitle(operation.payload);
+    case "deleteTodoList":
+      return deleteTodoList(operation.payload);
+    case "deleteTodoItem":
+      return deleteTodoItem(operation.payload);
   }
 }

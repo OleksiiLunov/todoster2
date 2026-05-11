@@ -5,6 +5,7 @@ import type { TodoItemSnapshot } from "@/lib/todos/types";
 type TodoItemRowProps = {
   item: TodoItemSnapshot;
   maxTitleLength: number;
+  onDelete: () => void;
   onRenameTitleInput: () => void;
   onSetDone: (isDone: boolean) => void;
   onSetTitle: (title: string) => void;
@@ -14,6 +15,7 @@ type TodoItemRowProps = {
 export function TodoItemRow({
   item,
   maxTitleLength,
+  onDelete,
   onRenameTitleInput,
   onSetDone,
   onSetTitle,
@@ -52,6 +54,13 @@ export function TodoItemRow({
             type="submit"
           >
             Rename
+          </button>
+          <button
+            className="h-9 rounded-md border border-red-200 px-3 text-sm font-medium text-red-700 transition hover:bg-red-50"
+            onClick={onDelete}
+            type="button"
+          >
+            Delete
           </button>
         </div>
         {renameError ? (
