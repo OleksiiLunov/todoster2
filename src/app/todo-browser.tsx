@@ -488,12 +488,14 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
 
       if (event.key === TODO_SYNC_QUEUE_STORAGE_KEY) {
         if (!event.newValue) {
+          setSyncError("");
           return;
         }
 
         const queue = parseSyncQueue(event.newValue);
 
         if (queue.length === 0) {
+          setSyncError("");
           return;
         }
 
