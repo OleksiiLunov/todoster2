@@ -5,8 +5,11 @@ import { CreateItemForm } from "@/features/todos/components/create-item-form";
 import { TodoItemRow } from "@/features/todos/components/todo-item-row";
 import type { TodoListSnapshot } from "@/lib/todos/types";
 
+export type TodoItemStatusFilter = "active" | "all" | "completed";
+
 type TodoPanelProps = {
   itemError: string;
+  itemStatusFilter: TodoItemStatusFilter;
   itemRenameErrors: Record<string, string>;
   itemTitle: string;
   list: TodoListSnapshot | null;
@@ -15,6 +18,7 @@ type TodoPanelProps = {
   onDeleteTodoItem?: (itemId: string) => void;
   onDeleteTodoList?: () => void;
   onItemSubmit?: (event: FormEvent<HTMLFormElement>) => void;
+  onItemStatusFilterChange: (filter: TodoItemStatusFilter) => void;
   onItemTitleChange?: (title: string) => void;
   onMoveTodoItem?: (itemId: string, direction: "down" | "up") => void;
   onSetTodoDone?: (itemId: string, isDone: boolean) => void;
@@ -26,6 +30,7 @@ type TodoPanelProps = {
 
 export function TodoPanel({
   itemError,
+  itemStatusFilter,
   itemRenameErrors,
   itemTitle,
   list,
@@ -34,6 +39,7 @@ export function TodoPanel({
   onDeleteTodoItem,
   onDeleteTodoList,
   onItemSubmit,
+  onItemStatusFilterChange,
   onItemTitleChange,
   onMoveTodoItem,
   onSetTodoDone,
@@ -47,6 +53,7 @@ export function TodoPanel({
     !onDeleteTodoItem ||
     !onDeleteTodoList ||
     !onItemSubmit ||
+    !onItemStatusFilterChange ||
     !onItemTitleChange ||
     !onMoveTodoItem ||
     !onSetTodoDone ||
@@ -64,6 +71,25 @@ export function TodoPanel({
       </section>
     );
   }
+
+  const visibleItems = list.items.filter((item) => {
+    if (itemStatusFilter === "active") {
+      return !item.isDone;
+    }
+
+    if (itemStatusFilter === "completed") {
+      return item.isDone;
+    }
+
+    return true;
+  });
+
+  const filters: Array<{ label: string; value: TodoItemStatusFilter }> = [
+    { label: "All", value: "all" },
+    { label: "Active", value: "active" },
+    { label: "Completed", value: "completed" },
+  ];
+  const reorderIsDisabled = itemStatusFilter !== "all";
 
   return (
     <section className="rounded-md border border-zinc-200 bg-white p-5 shadow-sm">
@@ -117,26 +143,58 @@ export function TodoPanel({
         title={itemTitle}
       />
 
+      <div className="mt-5 flex flex-wrap gap-2">
+        {filters.map((filter) => {
+          const isSelected = filter.value === itemStatusFilter;
+
+          return (
+            <button
+              aria-pressed={isSelected}
+              className={`h-9 rounded-md border px-3 text-sm font-medium transition ${
+                isSelected
+                  ? "border-zinc-950 bg-zinc-950 text-white"
+                  : "border-zinc-300 text-zinc-700 hover:bg-zinc-50"
+              }`}
+              key={filter.value}
+              onClick={() => onItemStatusFilterChange(filter.value)}
+              type="button"
+            >
+              {filter.label}
+            </button>
+          );
+        })}
+      </div>
+
       {list.items.length === 0 ? (
         <p className="mt-6 text-sm text-zinc-500">No todos yet.</p>
+      ) : visibleItems.length === 0 ? (
+        <p className="mt-6 text-sm text-zinc-500">No matching todos.</p>
       ) : (
         <ul className="mt-6 divide-y divide-zinc-100">
-          {list.items.map((item, index) => (
-            <TodoItemRow
-              item={item}
-              key={item.id}
-              maxTitleLength={maxTitleLength}
-              moveDownDisabled={index === list.items.length - 1}
-              moveUpDisabled={index === 0}
-              onDelete={() => onDeleteTodoItem(item.id)}
-              onMoveDown={() => onMoveTodoItem(item.id, "down")}
-              onMoveUp={() => onMoveTodoItem(item.id, "up")}
-              onRenameTitleInput={() => onTodoItemTitleInput(item.id)}
-              onSetDone={(isDone) => onSetTodoDone(item.id, isDone)}
-              onSetTitle={(title) => onSetTodoItemTitle(item.id, title)}
-              renameError={itemRenameErrors[item.id] ?? ""}
-            />
-          ))}
+          {visibleItems.map((item) => {
+            const itemIndex = list.items.findIndex(
+              (listItem) => listItem.id === item.id,
+            );
+
+            return (
+              <TodoItemRow
+                item={item}
+                key={item.id}
+                maxTitleLength={maxTitleLength}
+                moveDownDisabled={
+                  reorderIsDisabled || itemIndex === list.items.length - 1
+                }
+                moveUpDisabled={reorderIsDisabled || itemIndex === 0}
+                onDelete={() => onDeleteTodoItem(item.id)}
+                onMoveDown={() => onMoveTodoItem(item.id, "down")}
+                onMoveUp={() => onMoveTodoItem(item.id, "up")}
+                onRenameTitleInput={() => onTodoItemTitleInput(item.id)}
+                onSetDone={(isDone) => onSetTodoDone(item.id, isDone)}
+                onSetTitle={(title) => onSetTodoItemTitle(item.id, title)}
+                renameError={itemRenameErrors[item.id] ?? ""}
+              />
+            );
+          })}
         </ul>
       )}
     </section>

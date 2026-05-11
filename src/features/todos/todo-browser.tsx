@@ -3,7 +3,10 @@
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { TodoHeader } from "@/features/todos/components/todo-header";
 import { TodoListPanel } from "@/features/todos/components/todo-list-panel";
-import { TodoPanel } from "@/features/todos/components/todo-panel";
+import {
+  TodoPanel,
+  type TodoItemStatusFilter,
+} from "@/features/todos/components/todo-panel";
 import {
   TODO_SNAPSHOT_STORAGE_KEY,
   parseTodoSnapshot,
@@ -86,6 +89,8 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
   const [listError, setListError] = useState("");
   const [itemTitles, setItemTitles] = useState<Record<string, string>>({});
   const [itemErrors, setItemErrors] = useState<Record<string, string>>({});
+  const [itemStatusFilter, setItemStatusFilter] =
+    useState<TodoItemStatusFilter>("all");
   const [listRenameErrors, setListRenameErrors] = useState<
     Record<string, string>
   >({});
@@ -711,6 +716,7 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
 
         <TodoPanel
           itemError={selectedList ? (itemErrors[selectedList.id] ?? "") : ""}
+          itemStatusFilter={itemStatusFilter}
           itemRenameErrors={itemRenameErrors}
           itemTitle={selectedList ? (itemTitles[selectedList.id] ?? "") : ""}
           list={selectedList}
@@ -731,6 +737,7 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
               ? (event) => handleCreateItem(event, selectedList.id)
               : undefined
           }
+          onItemStatusFilterChange={setItemStatusFilter}
           onItemTitleChange={
             selectedList
               ? (title) => {
