@@ -7,12 +7,18 @@ import {
   TodoPanel,
   type TodoItemStatusFilter,
 } from "@/features/todos/components/todo-panel";
+import { TodoTrashPanel } from "@/features/todos/components/todo-trash-panel";
 import {
   TODO_SNAPSHOT_STORAGE_KEY,
+  TODO_TRASH_SNAPSHOT_STORAGE_KEY,
   parseTodoSnapshot,
+  parseTodoTrashSnapshot,
   readStoredTodoSnapshot,
+  readStoredTodoTrashSnapshot,
   stringifyTodoSnapshot,
+  stringifyTodoTrashSnapshot,
   writeTodoSnapshot,
+  writeTodoTrashSnapshot,
 } from "@/lib/todos/browser-snapshot-storage";
 import {
   TODO_SESSION_HEARTBEAT_MS,
@@ -44,7 +50,12 @@ import {
   type SyncOperation,
   writeSyncQueue,
 } from "@/lib/todos/sync-queue-storage";
-import type { TodoSnapshot } from "@/lib/todos/types";
+import type {
+  TodoBootstrap,
+  TodoListSnapshot,
+  TodoSnapshot,
+  TodoTrashSnapshot,
+} from "@/lib/todos/types";
 
 export const MAX_TODO_TITLE_LENGTH = 120;
 
@@ -54,7 +65,7 @@ type PersistenceResult = {
 };
 
 type TodoBrowserProps = {
-  bootstrap: TodoSnapshot;
+  bootstrap: TodoBootstrap;
 };
 
 function createBrowserId(prefix: "list" | "item") {
@@ -83,7 +94,8 @@ function getPersistenceErrorMessage(result: PersistenceResult) {
 }
 
 export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
-  const [snapshot, setSnapshot] = useState<TodoSnapshot>(bootstrap);
+  const [snapshot, setSnapshot] = useState<TodoSnapshot>(bootstrap.snapshot);
+  const [trash, setTrash] = useState<TodoTrashSnapshot>(bootstrap.trash);
   const [isInitialized, setIsInitialized] = useState(false);
   const [syncError, setSyncError] = useState("");
   const [listTitle, setListTitle] = useState("");
@@ -101,16 +113,21 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
   const isDispatchingQueue = useRef(false);
   const lastWrittenSnapshotJson = useRef("");
+  const lastWrittenTrashSnapshotJson = useRef("");
 
   useEffect(() => {
     const now = Date.now();
     const sessionMarker = readStoredBrowserSessionMarker();
     const sessionIsActive = isBrowserSessionActive(sessionMarker, now);
     const storedSnapshot = sessionIsActive ? readStoredTodoSnapshot() : null;
-    const initialSnapshot = storedSnapshot ?? bootstrap;
+    const storedTrash = sessionIsActive ? readStoredTodoTrashSnapshot() : null;
+    const initialSnapshot = storedSnapshot ?? bootstrap.snapshot;
+    const initialTrash = storedTrash ?? bootstrap.trash;
 
     setSnapshot(initialSnapshot);
+    setTrash(initialTrash);
     lastWrittenSnapshotJson.current = writeTodoSnapshot(initialSnapshot);
+    lastWrittenTrashSnapshotJson.current = writeTodoTrashSnapshot(initialTrash);
     writeBrowserSessionMarker({
       startedAt: sessionIsActive && sessionMarker ? sessionMarker.startedAt : now,
       lastSeenAt: now,
@@ -154,6 +171,24 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
     window.localStorage.setItem(TODO_SNAPSHOT_STORAGE_KEY, serializedSnapshot);
     lastWrittenSnapshotJson.current = serializedSnapshot;
   }, [isInitialized, snapshot]);
+
+  useEffect(() => {
+    if (!isInitialized) {
+      return;
+    }
+
+    const serializedSnapshot = stringifyTodoTrashSnapshot(trash);
+
+    if (serializedSnapshot === lastWrittenTrashSnapshotJson.current) {
+      return;
+    }
+
+    window.localStorage.setItem(
+      TODO_TRASH_SNAPSHOT_STORAGE_KEY,
+      serializedSnapshot,
+    );
+    lastWrittenTrashSnapshotJson.current = serializedSnapshot;
+  }, [isInitialized, trash]);
 
   useEffect(() => {
     if (!isInitialized) {
@@ -234,6 +269,25 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
 
           return nextSnapshot.lists[0]?.id ?? null;
         });
+        return;
+      }
+
+      if (event.key === TODO_TRASH_SNAPSHOT_STORAGE_KEY) {
+        if (
+          !event.newValue ||
+          event.newValue === lastWrittenTrashSnapshotJson.current
+        ) {
+          return;
+        }
+
+        const nextTrash = parseTodoTrashSnapshot(event.newValue);
+
+        if (!nextTrash) {
+          return;
+        }
+
+        lastWrittenTrashSnapshotJson.current = event.newValue;
+        setTrash(nextTrash);
         return;
       }
 
@@ -321,6 +375,67 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
     }
 
     void processSyncQueue();
+  }
+
+  function addDeletedListToTrash(list: TodoListSnapshot, deletedAt: string) {
+    setTrash((currentTrash) => {
+      const trashedList = {
+        id: list.id,
+        title: list.title,
+        position: list.position,
+        createdAt: list.createdAt,
+        updatedAt: list.updatedAt,
+        deletedAt,
+      };
+      const trashedItems = list.items.map((item) => ({
+        ...item,
+        deletedAt,
+        listId: list.id,
+        listTitle: list.title,
+      }));
+      const trashedItemIds = new Set(trashedItems.map((item) => item.id));
+
+      return {
+        ...currentTrash,
+        lists: [
+          trashedList,
+          ...currentTrash.lists.filter(
+            (trashList) => trashList.id !== list.id,
+          ),
+        ],
+        items: [
+          ...trashedItems,
+          ...currentTrash.items.filter(
+            (trashItem) => !trashedItemIds.has(trashItem.id),
+          ),
+        ],
+      };
+    });
+  }
+
+  function addDeletedItemToTrash(
+    list: TodoListSnapshot,
+    itemId: string,
+    deletedAt: string,
+  ) {
+    const item = list.items.find((listItem) => listItem.id === itemId);
+
+    if (!item) {
+      return;
+    }
+
+    setTrash((currentTrash) => ({
+      ...currentTrash,
+      items: [
+        {
+          ...item,
+          deletedAt,
+          listId: list.id,
+          listTitle: list.title,
+        },
+        ...currentTrash.items.filter((trashItem) => trashItem.id !== item.id),
+      ],
+    }));
   }
 
   function handleCreateList(event: FormEvent<HTMLFormElement>) {
@@ -574,13 +689,16 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
     }
 
     const remainingLists = snapshot.lists.filter((list) => list.id !== listId);
+    const deletedList = snapshot.lists[deletedListIndex];
     const nextSelectedListId =
       selectedListId === listId
         ? (remainingLists[deletedListIndex]?.id ??
           remainingLists[deletedListIndex - 1]?.id ??
           null)
         : selectedListId;
+    const now = new Date().toISOString();
 
+    addDeletedListToTrash(deletedList, now);
     setSnapshot(deleteTodoListSnapshot(snapshot, { listId }));
     setSelectedListId(nextSelectedListId);
     setItemTitles((currentTitles) => {
@@ -610,7 +728,7 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
       );
     });
     enqueueSyncOperation({
-      createdAt: new Date().toISOString(),
+      createdAt: now,
       id: createSyncOperationId(),
       payload: {
         id: listId,
@@ -629,6 +747,7 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
 
     const now = new Date().toISOString();
 
+    addDeletedItemToTrash(targetList, itemId, now);
     setSnapshot(deleteTodoItemSnapshot(snapshot, { itemId, listId, now }));
     setItemRenameErrors((currentErrors) => {
       const { [itemId]: _deletedItemError, ...remainingErrors } =
@@ -642,6 +761,53 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
         id: itemId,
       },
       type: "deleteTodoItem",
+    });
+  }
+
+  function permanentlyDeleteTodoList(listId: string) {
+    const targetList = trash.lists.find((list) => list.id === listId);
+
+    if (!targetList) {
+      return;
+    }
+
+    const now = new Date().toISOString();
+
+    setTrash((currentTrash) => ({
+      ...currentTrash,
+      lists: currentTrash.lists.filter((list) => list.id !== listId),
+      items: currentTrash.items.filter((item) => item.listId !== listId),
+    }));
+    enqueueSyncOperation({
+      createdAt: now,
+      id: createSyncOperationId(),
+      payload: {
+        id: listId,
+      },
+      type: "permanentlyDeleteTodoList",
+    });
+  }
+
+  function permanentlyDeleteTodoItem(itemId: string) {
+    const targetItem = trash.items.find((item) => item.id === itemId);
+
+    if (!targetItem) {
+      return;
+    }
+
+    const now = new Date().toISOString();
+
+    setTrash((currentTrash) => ({
+      ...currentTrash,
+      items: currentTrash.items.filter((item) => item.id !== itemId),
+    }));
+    enqueueSyncOperation({
+      createdAt: now,
+      id: createSyncOperationId(),
+      payload: {
+        id: itemId,
+      },
+      type: "permanentlyDeleteTodoItem",
     });
   }
 
@@ -722,7 +888,7 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-8 px-6 py-10 sm:px-10">
+    <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-8 px-6 py-10 sm:px-10">
       <TodoHeader listCount={snapshot.lists.length} todoCount={totalItems} />
 
       {syncError ? (
@@ -731,7 +897,7 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
         </p>
       ) : null}
 
-      <section className="grid min-h-[28rem] gap-4 lg:grid-cols-[20rem_minmax(0,1fr)]">
+      <section className="grid min-h-[28rem] gap-4 xl:grid-cols-[20rem_minmax(0,1fr)_22rem]">
         <TodoListPanel
           createListError={listError}
           createListTitle={listTitle}
@@ -828,6 +994,12 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
           onUncheckAllItems={
             selectedList ? () => uncheckAllTodoItems(selectedList.id) : undefined
           }
+        />
+
+        <TodoTrashPanel
+          onPermanentlyDeleteTodoItem={permanentlyDeleteTodoItem}
+          onPermanentlyDeleteTodoList={permanentlyDeleteTodoList}
+          trash={trash}
         />
       </section>
     </main>

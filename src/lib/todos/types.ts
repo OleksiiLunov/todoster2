@@ -24,3 +24,24 @@ export type TodoSnapshot = {
   lists: TodoListSnapshot[];
 };
 
+export type TodoTrashItemSnapshot = TodoItemSnapshot & {
+  deletedAt: string;
+  listId: string;
+  listTitle: string;
+};
+
+export type TodoTrashListSnapshot = Omit<TodoListSnapshot, "items"> & {
+  deletedAt: string;
+};
+
+export type TodoTrashSnapshot = {
+  userId: string;
+  bootstrappedAt: string;
+  lists: TodoTrashListSnapshot[];
+  items: TodoTrashItemSnapshot[];
+};
+
+export type TodoBootstrap = {
+  snapshot: TodoSnapshot;
+  trash: TodoTrashSnapshot;
+};

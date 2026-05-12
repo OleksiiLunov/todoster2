@@ -79,6 +79,22 @@ export type SyncOperation =
       createdAt: string;
       id: string;
       payload: {
+        id: string;
+      };
+      type: "permanentlyDeleteTodoList";
+    }
+  | {
+      createdAt: string;
+      id: string;
+      payload: {
+        id: string;
+      };
+      type: "permanentlyDeleteTodoItem";
+    }
+  | {
+      createdAt: string;
+      id: string;
+      payload: {
         lists: Array<{
           id: string;
           position: number;
@@ -164,6 +180,8 @@ function isSyncOperation(value: unknown): value is SyncOperation {
       );
     case "deleteTodoList":
     case "deleteTodoItem":
+    case "permanentlyDeleteTodoList":
+    case "permanentlyDeleteTodoItem":
       return isNonEmptyString(value.payload.id);
     case "setTodoListPositions":
       return (

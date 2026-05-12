@@ -52,6 +52,14 @@ type DeleteTodoItemInput = {
   id: string;
 };
 
+type PermanentlyDeleteTodoListInput = {
+  id: string;
+};
+
+type PermanentlyDeleteTodoItemInput = {
+  id: string;
+};
+
 type TodoPositionInput = {
   id: string;
   position: number;
@@ -500,6 +508,58 @@ export async function deleteTodoItem(
         id: input.id,
         list: {
           deletedAt: null,
+          userId: TEMP_USER_ID,
+        },
+      },
+    });
+
+    return { ok: true };
+  } catch {
+    return persistenceError();
+  }
+}
+
+export async function permanentlyDeleteTodoList(
+  input: PermanentlyDeleteTodoListInput,
+): Promise<PersistenceResult> {
+  const idError = validateId(input.id, "List id");
+  if (idError) {
+    return validationError(idError);
+  }
+
+  try {
+    await prisma.todoList.deleteMany({
+      where: {
+        deletedAt: {
+          not: null,
+        },
+        id: input.id,
+        userId: TEMP_USER_ID,
+      },
+    });
+
+    return { ok: true };
+  } catch {
+    return persistenceError();
+  }
+}
+
+export async function permanentlyDeleteTodoItem(
+  input: PermanentlyDeleteTodoItemInput,
+): Promise<PersistenceResult> {
+  const idError = validateId(input.id, "Todo id");
+  if (idError) {
+    return validationError(idError);
+  }
+
+  try {
+    await prisma.todoItem.deleteMany({
+      where: {
+        deletedAt: {
+          not: null,
+        },
+        id: input.id,
+        list: {
           userId: TEMP_USER_ID,
         },
       },
