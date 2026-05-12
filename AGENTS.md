@@ -67,13 +67,28 @@ Do NOT introduce yet:
 - global state libraries
 - realtime sync
 - collaborative editing
-- drag-and-drop
 
 Temporary identity:
 
 ```ts
 TEMP_USER_ID = "test-user"
 ```
+
+---
+
+## Todo feature scope before auth
+
+Allowed remaining todo features before authentication:
+
+- uncheck all
+- trash and permanent delete
+- drag-and-drop reorder
+
+Drag-and-drop is allowed only for reordering existing todo lists and existing todo items within their current list.
+
+Do not add cross-list item moves yet.
+
+After uncheck all, trash/permanent delete, and drag-and-drop reorder are complete, do not add new todo features before authentication. Project focus should move to authentication, then UI polish.
 
 ---
 
