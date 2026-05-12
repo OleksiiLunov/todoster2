@@ -28,6 +28,12 @@ type SetTodoDoneInput = {
   isDone: boolean;
 };
 
+type SetTodosDoneInput = {
+  ids: string[];
+  isDone: boolean;
+  listId: string;
+};
+
 type SetTodoListTitleInput = {
   id: string;
   title: string;
@@ -103,6 +109,29 @@ function validatePositions(values: TodoPositionInput[], label: string) {
     }
 
     ids.add(value.id);
+  }
+
+  return "";
+}
+
+function validateIds(values: string[], label: string) {
+  if (!Array.isArray(values) || values.length === 0) {
+    return `${label} ids are required.`;
+  }
+
+  const ids = new Set<string>();
+
+  for (const value of values) {
+    const idError = validateId(value, label);
+    if (idError) {
+      return idError;
+    }
+
+    if (ids.has(value)) {
+      return `${label} ids must not contain duplicates.`;
+    }
+
+    ids.add(value);
   }
 
   return "";
@@ -287,6 +316,47 @@ export async function setTodoItemDone(
     return result.count === 1
       ? { ok: true }
       : validationError("Todo was not found.");
+  } catch {
+    return persistenceError();
+  }
+}
+
+export async function setTodoItemsDone(
+  input: SetTodosDoneInput,
+): Promise<PersistenceResult> {
+  const listIdError = validateId(input.listId, "List id");
+  if (listIdError) {
+    return validationError(listIdError);
+  }
+
+  const idsError = validateIds(input.ids, "Todo");
+  if (idsError) {
+    return validationError(idsError);
+  }
+
+  if (typeof input.isDone !== "boolean") {
+    return validationError("Todo done state must be a boolean.");
+  }
+
+  try {
+    const result = await prisma.todoItem.updateMany({
+      data: {
+        isDone: input.isDone,
+      },
+      where: {
+        id: {
+          in: input.ids,
+        },
+        listId: input.listId,
+        list: {
+          userId: TEMP_USER_ID,
+        },
+      },
+    });
+
+    return result.count === input.ids.length
+      ? { ok: true }
+      : validationError("One or more todos were not found.");
   } catch {
     return persistenceError();
   }

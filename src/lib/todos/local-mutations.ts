@@ -24,6 +24,13 @@ type SetTodoItemDoneInput = {
   now: string;
 };
 
+type SetTodoItemsDoneInput = {
+  isDone: boolean;
+  itemIds: string[];
+  listId: string;
+  now: string;
+};
+
 type SetTodoListTitleInput = {
   listId: string;
   now: string;
@@ -144,6 +151,34 @@ export function setTodoItemDoneSnapshot(
             updatedAt: input.now,
             items: list.items.map((item) =>
               item.id === input.itemId
+                ? {
+                    ...item,
+                    isDone: input.isDone,
+                    updatedAt: input.now,
+                  }
+                : item,
+            ),
+          }
+        : list,
+    ),
+  };
+}
+
+export function setTodoItemsDoneSnapshot(
+  snapshot: TodoSnapshot,
+  input: SetTodoItemsDoneInput,
+): TodoSnapshot {
+  const itemIds = new Set(input.itemIds);
+
+  return {
+    ...snapshot,
+    lists: snapshot.lists.map((list) =>
+      list.id === input.listId
+        ? {
+            ...list,
+            updatedAt: input.now,
+            items: list.items.map((item) =>
+              itemIds.has(item.id)
                 ? {
                     ...item,
                     isDone: input.isDone,

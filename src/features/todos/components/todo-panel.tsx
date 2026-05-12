@@ -26,6 +26,7 @@ type TodoPanelProps = {
   onSetTodoListTitle?: (title: string) => void;
   onTodoItemTitleInput?: (itemId: string) => void;
   onTodoListTitleInput?: () => void;
+  onUncheckAllItems?: () => void;
 };
 
 export function TodoPanel({
@@ -47,6 +48,7 @@ export function TodoPanel({
   onSetTodoListTitle,
   onTodoItemTitleInput,
   onTodoListTitleInput,
+  onUncheckAllItems,
 }: TodoPanelProps) {
   if (
     !list ||
@@ -60,7 +62,8 @@ export function TodoPanel({
     !onSetTodoItemTitle ||
     !onSetTodoListTitle ||
     !onTodoItemTitleInput ||
-    !onTodoListTitleInput
+    !onTodoListTitleInput ||
+    !onUncheckAllItems
   ) {
     return (
       <section className="rounded-md border border-dashed border-zinc-300 bg-zinc-50 p-8 text-center">
@@ -90,6 +93,7 @@ export function TodoPanel({
     { label: "Completed", value: "completed" },
   ];
   const reorderIsDisabled = itemStatusFilter !== "all";
+  const completedItemCount = list.items.filter((item) => item.isDone).length;
 
   return (
     <section className="rounded-md border border-zinc-200 bg-white p-5 shadow-sm">
@@ -143,26 +147,40 @@ export function TodoPanel({
         title={itemTitle}
       />
 
-      <div className="mt-5 flex flex-wrap gap-2">
-        {filters.map((filter) => {
-          const isSelected = filter.value === itemStatusFilter;
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-2">
+          {filters.map((filter) => {
+            const isSelected = filter.value === itemStatusFilter;
 
-          return (
+            return (
+              <button
+                aria-pressed={isSelected}
+                className={`h-9 rounded-md border px-3 text-sm font-medium transition ${
+                  isSelected
+                    ? "border-zinc-950 bg-zinc-950 text-white"
+                    : "border-zinc-300 text-zinc-700 hover:bg-zinc-50"
+                }`}
+                key={filter.value}
+                onClick={() => onItemStatusFilterChange(filter.value)}
+                type="button"
+              >
+                {filter.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {completedItemCount > 0 ? (
+          <div className="flex justify-end">
             <button
-              aria-pressed={isSelected}
-              className={`h-9 rounded-md border px-3 text-sm font-medium transition ${
-                isSelected
-                  ? "border-zinc-950 bg-zinc-950 text-white"
-                  : "border-zinc-300 text-zinc-700 hover:bg-zinc-50"
-              }`}
-              key={filter.value}
-              onClick={() => onItemStatusFilterChange(filter.value)}
+              className="h-9 rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50"
+              onClick={onUncheckAllItems}
               type="button"
             >
-              {filter.label}
+              Uncheck all
             </button>
-          );
-        })}
+          </div>
+        ) : null}
       </div>
 
       {list.items.length === 0 ? (

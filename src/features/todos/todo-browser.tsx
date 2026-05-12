@@ -32,6 +32,7 @@ import {
   reorderTodoItemsSnapshot,
   reorderTodoListsSnapshot,
   setTodoItemDoneSnapshot,
+  setTodoItemsDoneSnapshot,
   setTodoItemTitleSnapshot,
   setTodoListTitleSnapshot,
 } from "@/lib/todos/local-mutations";
@@ -441,6 +442,38 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
     });
   }
 
+  function uncheckAllTodoItems(listId: string) {
+    const targetList = snapshot.lists.find((list) => list.id === listId);
+    const completedItems =
+      targetList?.items.filter((item) => item.isDone) ?? [];
+
+    if (!targetList || completedItems.length === 0) {
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const itemIds = completedItems.map((item) => item.id);
+
+    setSnapshot(
+      setTodoItemsDoneSnapshot(snapshot, {
+        isDone: false,
+        itemIds,
+        listId,
+        now,
+      }),
+    );
+    enqueueSyncOperation({
+      createdAt: now,
+      id: createSyncOperationId(),
+      payload: {
+        ids: itemIds,
+        isDone: false,
+        listId,
+      },
+      type: "setTodoItemsDone",
+    });
+  }
+
   function setTodoListTitle(listId: string, title: string) {
     const validation = validateTitle(title);
     if (validation.error) {
@@ -791,6 +824,9 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
                     [selectedList.id]: "",
                   }))
               : undefined
+          }
+          onUncheckAllItems={
+            selectedList ? () => uncheckAllTodoItems(selectedList.id) : undefined
           }
         />
       </section>

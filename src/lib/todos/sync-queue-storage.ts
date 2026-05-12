@@ -35,6 +35,16 @@ export type SyncOperation =
       createdAt: string;
       id: string;
       payload: {
+        ids: string[];
+        isDone: boolean;
+        listId: string;
+      };
+      type: "setTodoItemsDone";
+    }
+  | {
+      createdAt: string;
+      id: string;
+      payload: {
         id: string;
         title: string;
       };
@@ -135,6 +145,15 @@ function isSyncOperation(value: unknown): value is SyncOperation {
     case "setTodoItemDone":
       return (
         isNonEmptyString(value.payload.id) &&
+        typeof value.payload.isDone === "boolean"
+      );
+    case "setTodoItemsDone":
+      return (
+        isNonEmptyString(value.payload.listId) &&
+        Array.isArray(value.payload.ids) &&
+        value.payload.ids.length > 0 &&
+        value.payload.ids.every(isNonEmptyString) &&
+        new Set(value.payload.ids).size === value.payload.ids.length &&
         typeof value.payload.isDone === "boolean"
       );
     case "setTodoListTitle":
