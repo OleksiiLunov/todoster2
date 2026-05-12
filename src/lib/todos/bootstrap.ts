@@ -4,11 +4,15 @@ import { TEMP_USER_ID, type TodoSnapshot } from "@/lib/todos/types";
 export async function loadTodoBootstrap(): Promise<TodoSnapshot> {
   const lists = await prisma.todoList.findMany({
     where: {
+      deletedAt: null,
       userId: TEMP_USER_ID,
     },
     orderBy: [{ position: "asc" }, { createdAt: "asc" }],
     include: {
       items: {
+        where: {
+          deletedAt: null,
+        },
         orderBy: [{ position: "asc" }, { createdAt: "asc" }],
       },
     },
@@ -34,4 +38,3 @@ export async function loadTodoBootstrap(): Promise<TodoSnapshot> {
     })),
   };
 }
-

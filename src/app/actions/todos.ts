@@ -197,11 +197,13 @@ export async function createTodoList(
     await prisma.todoList.upsert({
       create: {
         id: input.id,
+        deletedAt: null,
         position: input.position,
         title: titleValidation.title,
         userId: TEMP_USER_ID,
       },
       update: {
+        deletedAt: null,
         position: input.position,
         title: titleValidation.title,
       },
@@ -241,6 +243,7 @@ export async function createTodoItem(
     const list = await prisma.todoList.findFirst({
       select: { id: true },
       where: {
+        deletedAt: null,
         id: input.listId,
         userId: TEMP_USER_ID,
       },
@@ -263,6 +266,7 @@ export async function createTodoItem(
     if (existingItem) {
       await prisma.todoItem.update({
         data: {
+          deletedAt: null,
           listId: input.listId,
           position: input.position,
           title: titleValidation.title,
@@ -276,6 +280,7 @@ export async function createTodoItem(
     await prisma.todoItem.create({
       data: {
         id: input.id,
+        deletedAt: null,
         listId: input.listId,
         position: input.position,
         title: titleValidation.title,
@@ -306,8 +311,10 @@ export async function setTodoItemDone(
         isDone: input.isDone,
       },
       where: {
+        deletedAt: null,
         id: input.id,
         list: {
+          deletedAt: null,
           userId: TEMP_USER_ID,
         },
       },
@@ -347,8 +354,10 @@ export async function setTodoItemsDone(
         id: {
           in: input.ids,
         },
+        deletedAt: null,
         listId: input.listId,
         list: {
+          deletedAt: null,
           userId: TEMP_USER_ID,
         },
       },
@@ -381,6 +390,7 @@ export async function setTodoListTitle(
         title: titleValidation.title,
       },
       where: {
+        deletedAt: null,
         id: input.id,
         userId: TEMP_USER_ID,
       },
@@ -413,8 +423,10 @@ export async function setTodoItemTitle(
         title: titleValidation.title,
       },
       where: {
+        deletedAt: null,
         id: input.id,
         list: {
+          deletedAt: null,
           userId: TEMP_USER_ID,
         },
       },
@@ -437,12 +449,32 @@ export async function deleteTodoList(
   }
 
   try {
-    await prisma.todoList.deleteMany({
-      where: {
-        id: input.id,
-        userId: TEMP_USER_ID,
-      },
-    });
+    const deletedAt = new Date();
+
+    await prisma.$transaction([
+      prisma.todoList.updateMany({
+        data: {
+          deletedAt,
+        },
+        where: {
+          deletedAt: null,
+          id: input.id,
+          userId: TEMP_USER_ID,
+        },
+      }),
+      prisma.todoItem.updateMany({
+        data: {
+          deletedAt,
+        },
+        where: {
+          deletedAt: null,
+          listId: input.id,
+          list: {
+            userId: TEMP_USER_ID,
+          },
+        },
+      }),
+    ]);
 
     return { ok: true };
   } catch {
@@ -459,10 +491,15 @@ export async function deleteTodoItem(
   }
 
   try {
-    await prisma.todoItem.deleteMany({
+    await prisma.todoItem.updateMany({
+      data: {
+        deletedAt: new Date(),
+      },
       where: {
+        deletedAt: null,
         id: input.id,
         list: {
+          deletedAt: null,
           userId: TEMP_USER_ID,
         },
       },
@@ -490,6 +527,7 @@ export async function setTodoListPositions(
             position: list.position,
           },
           where: {
+            deletedAt: null,
             id: list.id,
             userId: TEMP_USER_ID,
           },
@@ -525,8 +563,10 @@ export async function setTodoItemPositions(
           },
           where: {
             id: item.id,
+            deletedAt: null,
             listId: input.listId,
             list: {
+              deletedAt: null,
               userId: TEMP_USER_ID,
             },
           },

@@ -19,10 +19,12 @@ model TodoList {
   position Int
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deletedAt DateTime?
   items TodoItem[]
 
   @@index([userId])
   @@index([userId, position])
+  @@index([userId, deletedAt, position])
 }
 
 
@@ -34,9 +36,11 @@ model TodoItem {
   position Int
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deletedAt DateTime?
   isDone Boolean @default(false)
 
   @@index([listId])
   @@index([listId, position])
   @@index([listId, isDone, position])
+  @@index([listId, deletedAt, position])
 }
