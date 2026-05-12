@@ -111,6 +111,7 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
     Record<string, string>
   >({});
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
+  const [isTrashVisible, setIsTrashVisible] = useState(false);
   const isDispatchingQueue = useRef(false);
   const lastWrittenSnapshotJson = useRef("");
   const lastWrittenTrashSnapshotJson = useRef("");
@@ -326,6 +327,7 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
   );
   const selectedList =
     snapshot.lists.find((list) => list.id === selectedListId) ?? null;
+  const trashItemCount = trash.lists.length + trash.items.length;
 
   async function processSyncQueue() {
     if (isDispatchingQueue.current) {
@@ -889,7 +891,17 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-8 px-6 py-10 sm:px-10">
-      <TodoHeader listCount={snapshot.lists.length} todoCount={totalItems} />
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <TodoHeader listCount={snapshot.lists.length} todoCount={totalItems} />
+        <button
+          aria-expanded={isTrashVisible}
+          className="h-10 self-start rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50 sm:self-auto"
+          onClick={() => setIsTrashVisible((isVisible) => !isVisible)}
+          type="button"
+        >
+          {isTrashVisible ? "Hide Trash" : `Show Trash (${trashItemCount})`}
+        </button>
+      </div>
 
       {syncError ? (
         <p className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -897,7 +909,13 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
         </p>
       ) : null}
 
-      <section className="grid min-h-[28rem] gap-4 xl:grid-cols-[20rem_minmax(0,1fr)_22rem]">
+      <section
+        className={`grid min-h-[28rem] gap-4 ${
+          isTrashVisible
+            ? "xl:grid-cols-[20rem_minmax(0,1fr)_22rem]"
+            : "lg:grid-cols-[20rem_minmax(0,1fr)]"
+        }`}
+      >
         <TodoListPanel
           createListError={listError}
           createListTitle={listTitle}
@@ -996,11 +1014,13 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
           }
         />
 
-        <TodoTrashPanel
-          onPermanentlyDeleteTodoItem={permanentlyDeleteTodoItem}
-          onPermanentlyDeleteTodoList={permanentlyDeleteTodoList}
-          trash={trash}
-        />
+        {isTrashVisible ? (
+          <TodoTrashPanel
+            onPermanentlyDeleteTodoItem={permanentlyDeleteTodoItem}
+            onPermanentlyDeleteTodoList={permanentlyDeleteTodoList}
+            trash={trash}
+          />
+        ) : null}
       </section>
     </main>
   );
