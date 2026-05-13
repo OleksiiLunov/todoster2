@@ -68,6 +68,8 @@ type TodoBrowserProps = {
   bootstrap: TodoBootstrap;
 };
 
+type MoveDirection = "down" | "up";
+
 function createBrowserId(prefix: "list" | "item") {
   return `${prefix}_${crypto.randomUUID()}`;
 }
@@ -91,6 +93,71 @@ function validateTitle(title: string) {
 
 function getPersistenceErrorMessage(result: PersistenceResult) {
   return result.error ?? "Could not save changes. Please try again.";
+}
+
+function reorderTodoListsToIndex(
+  snapshot: TodoSnapshot,
+  listId: string,
+  targetIndex: number,
+) {
+  let nextSnapshot = snapshot;
+  let currentIndex = nextSnapshot.lists.findIndex((list) => list.id === listId);
+
+  while (currentIndex !== -1 && currentIndex < targetIndex) {
+    nextSnapshot = reorderTodoListsSnapshot(nextSnapshot, {
+      direction: "down",
+      listId,
+    });
+    currentIndex += 1;
+  }
+
+  while (currentIndex !== -1 && currentIndex > targetIndex) {
+    nextSnapshot = reorderTodoListsSnapshot(nextSnapshot, {
+      direction: "up",
+      listId,
+    });
+    currentIndex -= 1;
+  }
+
+  return nextSnapshot;
+}
+
+function reorderTodoItemsToIndex(
+  snapshot: TodoSnapshot,
+  input: {
+    itemId: string;
+    listId: string;
+    now: string;
+    targetIndex: number;
+  },
+) {
+  let nextSnapshot = snapshot;
+  let currentIndex =
+    nextSnapshot.lists
+      .find((list) => list.id === input.listId)
+      ?.items.findIndex((item) => item.id === input.itemId) ?? -1;
+
+  while (currentIndex !== -1 && currentIndex < input.targetIndex) {
+    nextSnapshot = reorderTodoItemsSnapshot(nextSnapshot, {
+      direction: "down",
+      itemId: input.itemId,
+      listId: input.listId,
+      now: input.now,
+    });
+    currentIndex += 1;
+  }
+
+  while (currentIndex !== -1 && currentIndex > input.targetIndex) {
+    nextSnapshot = reorderTodoItemsSnapshot(nextSnapshot, {
+      direction: "up",
+      itemId: input.itemId,
+      listId: input.listId,
+      now: input.now,
+    });
+    currentIndex -= 1;
+  }
+
+  return nextSnapshot;
 }
 
 export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
@@ -813,7 +880,43 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
     });
   }
 
-  function moveTodoList(listId: string, direction: "down" | "up") {
+  function persistTodoListPositions(nextSnapshot: TodoSnapshot, now: string) {
+    enqueueSyncOperation({
+      createdAt: now,
+      id: createSyncOperationId(),
+      payload: {
+        lists: nextSnapshot.lists.map((list) => ({
+          id: list.id,
+          position: list.position,
+        })),
+      },
+      type: "setTodoListPositions",
+    });
+  }
+
+  function persistTodoItemPositions(
+    nextSnapshot: TodoSnapshot,
+    listId: string,
+    now: string,
+  ) {
+    const nextItems =
+      nextSnapshot.lists.find((list) => list.id === listId)?.items ?? [];
+
+    enqueueSyncOperation({
+      createdAt: now,
+      id: createSyncOperationId(),
+      payload: {
+        items: nextItems.map((item) => ({
+          id: item.id,
+          position: item.position,
+        })),
+        listId,
+      },
+      type: "setTodoItemPositions",
+    });
+  }
+
+  function moveTodoList(listId: string, direction: MoveDirection) {
     const currentIndex = snapshot.lists.findIndex((list) => list.id === listId);
 
     if (currentIndex === -1) {
@@ -831,24 +934,33 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
       listId,
     });
 
+    const now = new Date().toISOString();
+
     setSnapshot(nextSnapshot);
-    enqueueSyncOperation({
-      createdAt: new Date().toISOString(),
-      id: createSyncOperationId(),
-      payload: {
-        lists: nextSnapshot.lists.map((list) => ({
-          id: list.id,
-          position: list.position,
-        })),
-      },
-      type: "setTodoListPositions",
-    });
+    persistTodoListPositions(nextSnapshot, now);
+  }
+
+  function reorderTodoList(listId: string, targetListId: string) {
+    const currentIndex = snapshot.lists.findIndex((list) => list.id === listId);
+    const targetIndex = snapshot.lists.findIndex(
+      (list) => list.id === targetListId,
+    );
+
+    if (currentIndex === -1 || targetIndex === -1 || currentIndex === targetIndex) {
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const nextSnapshot = reorderTodoListsToIndex(snapshot, listId, targetIndex);
+
+    setSnapshot(nextSnapshot);
+    persistTodoListPositions(nextSnapshot, now);
   }
 
   function moveTodoItem(
     listId: string,
     itemId: string,
-    direction: "down" | "up",
+    direction: MoveDirection,
   ) {
     const targetList = snapshot.lists.find((list) => list.id === listId);
     const currentIndex =
@@ -871,22 +983,36 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
       listId,
       now,
     });
-    const nextItems =
-      nextSnapshot.lists.find((list) => list.id === listId)?.items ?? [];
 
     setSnapshot(nextSnapshot);
-    enqueueSyncOperation({
-      createdAt: now,
-      id: createSyncOperationId(),
-      payload: {
-        items: nextItems.map((item) => ({
-          id: item.id,
-          position: item.position,
-        })),
-        listId,
-      },
-      type: "setTodoItemPositions",
+    persistTodoItemPositions(nextSnapshot, listId, now);
+  }
+
+  function reorderTodoItem(listId: string, itemId: string, targetItemId: string) {
+    const targetList = snapshot.lists.find((list) => list.id === listId);
+    const currentIndex =
+      targetList?.items.findIndex((item) => item.id === itemId) ?? -1;
+    const targetIndex =
+      targetList?.items.findIndex((item) => item.id === targetItemId) ?? -1;
+
+    if (!targetList || currentIndex === -1 || targetIndex === -1) {
+      return;
+    }
+
+    if (currentIndex === targetIndex) {
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const nextSnapshot = reorderTodoItemsToIndex(snapshot, {
+      itemId,
+      listId,
+      now,
+      targetIndex,
     });
+
+    setSnapshot(nextSnapshot);
+    persistTodoItemPositions(nextSnapshot, listId, now);
   }
 
   return (
@@ -927,6 +1053,7 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
             setListError("");
           }}
           onMoveTodoList={moveTodoList}
+          onReorderTodoList={reorderTodoList}
           onSelectList={setSelectedListId}
           selectedListId={selectedListId}
         />
@@ -973,6 +1100,12 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
             selectedList
               ? (itemId, direction) =>
                   moveTodoItem(selectedList.id, itemId, direction)
+              : undefined
+          }
+          onReorderTodoItem={
+            selectedList
+              ? (itemId, targetItemId) =>
+                  reorderTodoItem(selectedList.id, itemId, targetItemId)
               : undefined
           }
           onSetTodoDone={

@@ -1,5 +1,6 @@
 "use client";
 
+import type { DragEvent } from "react";
 import type { TodoItemSnapshot } from "@/lib/todos/types";
 
 type TodoItemRowProps = {
@@ -8,12 +9,20 @@ type TodoItemRowProps = {
   moveDownDisabled: boolean;
   moveUpDisabled: boolean;
   onDelete: () => void;
+  onDragEnd: () => void;
+  onDragLeave: () => void;
+  onDragOver: (event: DragEvent<HTMLLIElement>) => void;
+  onDragStart: (event: DragEvent<HTMLElement>) => void;
+  onDrop: (event: DragEvent<HTMLLIElement>) => void;
   onMoveDown: () => void;
   onMoveUp: () => void;
   onRenameTitleInput: () => void;
   onSetDone: (isDone: boolean) => void;
   onSetTitle: (title: string) => void;
   renameError: string;
+  reorderDisabled: boolean;
+  showDragOver: boolean;
+  showDragging: boolean;
 };
 
 export function TodoItemRow({
@@ -22,15 +31,51 @@ export function TodoItemRow({
   moveDownDisabled,
   moveUpDisabled,
   onDelete,
+  onDragEnd,
+  onDragLeave,
+  onDragOver,
+  onDragStart,
+  onDrop,
   onMoveDown,
   onMoveUp,
   onRenameTitleInput,
   onSetDone,
   onSetTitle,
   renameError,
+  reorderDisabled,
+  showDragOver,
+  showDragging,
 }: TodoItemRowProps) {
   return (
-    <li className="flex items-start gap-3 py-3">
+    <li
+      className={`flex items-start gap-3 rounded-md py-3 transition ${
+        showDragOver ? "bg-zinc-100 ring-2 ring-zinc-300" : ""
+      } ${showDragging ? "opacity-60" : ""}`}
+      onDragLeave={onDragLeave}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+    >
+      <button
+        aria-disabled={reorderDisabled}
+        aria-label={`Drag ${item.title}`}
+        className={`mt-0.5 flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border border-zinc-300 text-sm font-semibold text-zinc-500 ${
+          reorderDisabled
+            ? "cursor-not-allowed opacity-40"
+            : "cursor-grab active:cursor-grabbing"
+        }`}
+        draggable={!reorderDisabled}
+        onDragEnd={onDragEnd}
+        onDragStart={onDragStart}
+        tabIndex={reorderDisabled ? -1 : 0}
+        title={
+          reorderDisabled
+            ? "Switch to All to reorder"
+            : "Drag to reorder within this list"
+        }
+        type="button"
+      >
+        ::
+      </button>
       <input
         aria-label={`Mark ${item.title} as ${item.isDone ? "not done" : "done"}`}
         checked={item.isDone}

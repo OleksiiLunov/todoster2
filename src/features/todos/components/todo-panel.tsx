@@ -1,6 +1,6 @@
 "use client";
 
-import type { FormEvent } from "react";
+import { useState, type DragEvent, type FormEvent } from "react";
 import { CreateItemForm } from "@/features/todos/components/create-item-form";
 import { TodoItemRow } from "@/features/todos/components/todo-item-row";
 import type { TodoListSnapshot } from "@/lib/todos/types";
@@ -21,6 +21,7 @@ type TodoPanelProps = {
   onItemStatusFilterChange: (filter: TodoItemStatusFilter) => void;
   onItemTitleChange?: (title: string) => void;
   onMoveTodoItem?: (itemId: string, direction: "down" | "up") => void;
+  onReorderTodoItem?: (itemId: string, targetItemId: string) => void;
   onSetTodoDone?: (itemId: string, isDone: boolean) => void;
   onSetTodoItemTitle?: (itemId: string, title: string) => void;
   onSetTodoListTitle?: (title: string) => void;
@@ -43,6 +44,7 @@ export function TodoPanel({
   onItemStatusFilterChange,
   onItemTitleChange,
   onMoveTodoItem,
+  onReorderTodoItem,
   onSetTodoDone,
   onSetTodoItemTitle,
   onSetTodoListTitle,
@@ -50,6 +52,9 @@ export function TodoPanel({
   onTodoListTitleInput,
   onUncheckAllItems,
 }: TodoPanelProps) {
+  const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
+  const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
+
   if (
     !list ||
     !onDeleteTodoItem ||
@@ -58,6 +63,7 @@ export function TodoPanel({
     !onItemStatusFilterChange ||
     !onItemTitleChange ||
     !onMoveTodoItem ||
+    !onReorderTodoItem ||
     !onSetTodoDone ||
     !onSetTodoItemTitle ||
     !onSetTodoListTitle ||
@@ -75,7 +81,21 @@ export function TodoPanel({
     );
   }
 
-  const visibleItems = list.items.filter((item) => {
+  const activeList = list;
+  const deleteTodoItem = onDeleteTodoItem;
+  const deleteTodoList = onDeleteTodoList;
+  const itemSubmit = onItemSubmit;
+  const itemTitleChange = onItemTitleChange;
+  const moveTodoItem = onMoveTodoItem;
+  const reorderTodoItem = onReorderTodoItem;
+  const setTodoDone = onSetTodoDone;
+  const setTodoItemTitle = onSetTodoItemTitle;
+  const setTodoListTitle = onSetTodoListTitle;
+  const todoItemTitleInput = onTodoItemTitleInput;
+  const todoListTitleInput = onTodoListTitleInput;
+  const uncheckAllItems = onUncheckAllItems;
+
+  const visibleItems = activeList.items.filter((item) => {
     if (itemStatusFilter === "active") {
       return !item.isDone;
     }
@@ -93,7 +113,81 @@ export function TodoPanel({
     { label: "Completed", value: "completed" },
   ];
   const reorderIsDisabled = itemStatusFilter !== "all";
-  const completedItemCount = list.items.filter((item) => item.isDone).length;
+  const completedItemCount = activeList.items.filter(
+    (item) => item.isDone,
+  ).length;
+
+  function handleItemDragStart(
+    event: DragEvent<HTMLElement>,
+    itemId: string,
+  ) {
+    if (reorderIsDisabled) {
+      event.preventDefault();
+      return;
+    }
+
+    setDraggedItemId(itemId);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("application/x-todoster-item-id", itemId);
+    event.dataTransfer.setData("application/x-todoster-list-id", activeList.id);
+  }
+
+  function handleItemDragOver(
+    event: DragEvent<HTMLElement>,
+    targetItemId: string,
+  ) {
+    if (reorderIsDisabled) {
+      return;
+    }
+
+    const itemId =
+      draggedItemId ||
+      event.dataTransfer.getData("application/x-todoster-item-id");
+    const sourceListId =
+      event.dataTransfer.getData("application/x-todoster-list-id") ||
+      (draggedItemId ? activeList.id : "");
+
+    if (!itemId || itemId === targetItemId || sourceListId !== activeList.id) {
+      return;
+    }
+
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    setDragOverItemId(targetItemId);
+  }
+
+  function handleItemDrop(
+    event: DragEvent<HTMLElement>,
+    targetItemId: string,
+  ) {
+    event.preventDefault();
+
+    const itemId =
+      draggedItemId ||
+      event.dataTransfer.getData("application/x-todoster-item-id");
+    const sourceListId =
+      event.dataTransfer.getData("application/x-todoster-list-id") ||
+      (draggedItemId ? activeList.id : "");
+
+    setDraggedItemId(null);
+    setDragOverItemId(null);
+
+    if (
+      reorderIsDisabled ||
+      !itemId ||
+      itemId === targetItemId ||
+      sourceListId !== activeList.id
+    ) {
+      return;
+    }
+
+    reorderTodoItem(itemId, targetItemId);
+  }
+
+  function clearItemDragState() {
+    setDraggedItemId(null);
+    setDragOverItemId(null);
+  }
 
   return (
     <section className="rounded-md border border-zinc-200 bg-white p-5 shadow-sm">
@@ -104,16 +198,16 @@ export function TodoPanel({
             onSubmit={(event) => {
               event.preventDefault();
               const formData = new FormData(event.currentTarget);
-              onSetTodoListTitle(String(formData.get("title") ?? ""));
+              setTodoListTitle(String(formData.get("title") ?? ""));
             }}
           >
             <input
               className="h-10 min-w-0 flex-1 rounded-md border border-zinc-300 px-3 text-base font-semibold text-zinc-950 outline-none transition focus:border-zinc-900"
-              defaultValue={list.title}
-              key={list.updatedAt}
+              defaultValue={activeList.title}
+              key={activeList.updatedAt}
               maxLength={maxTitleLength}
               name="title"
-              onChange={onTodoListTitleInput}
+              onChange={todoListTitleInput}
             />
             <button
               className="h-10 rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50"
@@ -123,7 +217,7 @@ export function TodoPanel({
             </button>
             <button
               className="h-10 rounded-md border border-red-200 px-3 text-sm font-medium text-red-700 transition hover:bg-red-50"
-              onClick={onDeleteTodoList}
+              onClick={deleteTodoList}
               type="button"
             >
               Delete list
@@ -133,17 +227,17 @@ export function TodoPanel({
             <p className="mt-2 text-sm text-red-600">{listRenameError}</p>
           ) : null}
           <p className="mt-1 text-sm text-zinc-500">
-            {list.items.length} todos
+            {activeList.items.length} todos
           </p>
         </div>
       </div>
 
       <CreateItemForm
         error={itemError}
-        inputId={`new-item-title-${list.id}`}
+        inputId={`new-item-title-${activeList.id}`}
         maxTitleLength={maxTitleLength}
-        onSubmit={onItemSubmit}
-        onTitleChange={onItemTitleChange}
+        onSubmit={itemSubmit}
+        onTitleChange={itemTitleChange}
         title={itemTitle}
       />
 
@@ -174,7 +268,7 @@ export function TodoPanel({
           <div className="flex justify-end">
             <button
               className="h-9 rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50"
-              onClick={onUncheckAllItems}
+              onClick={uncheckAllItems}
               type="button"
             >
               Uncheck all
@@ -183,14 +277,14 @@ export function TodoPanel({
         ) : null}
       </div>
 
-      {list.items.length === 0 ? (
+      {activeList.items.length === 0 ? (
         <p className="mt-6 text-sm text-zinc-500">No todos yet.</p>
       ) : visibleItems.length === 0 ? (
         <p className="mt-6 text-sm text-zinc-500">No matching todos.</p>
       ) : (
         <ul className="mt-6 divide-y divide-zinc-100">
           {visibleItems.map((item) => {
-            const itemIndex = list.items.findIndex(
+            const itemIndex = activeList.items.findIndex(
               (listItem) => listItem.id === item.id,
             );
 
@@ -200,16 +294,28 @@ export function TodoPanel({
                 key={item.id}
                 maxTitleLength={maxTitleLength}
                 moveDownDisabled={
-                  reorderIsDisabled || itemIndex === list.items.length - 1
+                  reorderIsDisabled || itemIndex === activeList.items.length - 1
                 }
                 moveUpDisabled={reorderIsDisabled || itemIndex === 0}
-                onDelete={() => onDeleteTodoItem(item.id)}
-                onMoveDown={() => onMoveTodoItem(item.id, "down")}
-                onMoveUp={() => onMoveTodoItem(item.id, "up")}
-                onRenameTitleInput={() => onTodoItemTitleInput(item.id)}
-                onSetDone={(isDone) => onSetTodoDone(item.id, isDone)}
-                onSetTitle={(title) => onSetTodoItemTitle(item.id, title)}
+                onDelete={() => deleteTodoItem(item.id)}
+                onDragEnd={clearItemDragState}
+                onDragLeave={() => {
+                  if (dragOverItemId === item.id) {
+                    setDragOverItemId(null);
+                  }
+                }}
+                onDragOver={(event) => handleItemDragOver(event, item.id)}
+                onDragStart={(event) => handleItemDragStart(event, item.id)}
+                onDrop={(event) => handleItemDrop(event, item.id)}
+                onMoveDown={() => moveTodoItem(item.id, "down")}
+                onMoveUp={() => moveTodoItem(item.id, "up")}
+                onRenameTitleInput={() => todoItemTitleInput(item.id)}
+                onSetDone={(isDone) => setTodoDone(item.id, isDone)}
+                onSetTitle={(title) => setTodoItemTitle(item.id, title)}
                 renameError={itemRenameErrors[item.id] ?? ""}
+                reorderDisabled={reorderIsDisabled}
+                showDragOver={dragOverItemId === item.id}
+                showDragging={draggedItemId === item.id}
               />
             );
           })}
