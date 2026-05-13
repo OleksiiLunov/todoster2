@@ -11,7 +11,6 @@ type TodoListPanelProps = {
   maxTitleLength: number;
   onCreateListSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onCreateListTitleChange: (title: string) => void;
-  onMoveTodoList: (listId: string, direction: "down" | "up") => void;
   onReorderTodoList: (listId: string, targetListId: string) => void;
   onSelectList: (listId: string) => void;
   selectedListId: string | null;
@@ -24,7 +23,6 @@ export function TodoListPanel({
   maxTitleLength,
   onCreateListSubmit,
   onCreateListTitleChange,
-  onMoveTodoList,
   onReorderTodoList,
   onSelectList,
   selectedListId,
@@ -107,7 +105,7 @@ export function TodoListPanel({
         </div>
       ) : (
         <ul className="mt-3 flex flex-col gap-2">
-          {lists.map((list, index) => {
+          {lists.map((list) => {
             const isSelected = list.id === selectedListId;
 
             return (
@@ -158,26 +156,6 @@ export function TodoListPanel({
                     {list.items.length}
                   </span>
                 </button>
-                <div className="flex shrink-0 flex-col gap-1">
-                  <button
-                    aria-label={`Move ${list.title} up`}
-                    className="h-7 rounded-md border border-zinc-300 px-2 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
-                    disabled={index === 0}
-                    onClick={() => onMoveTodoList(list.id, "up")}
-                    type="button"
-                  >
-                    Up
-                  </button>
-                  <button
-                    aria-label={`Move ${list.title} down`}
-                    className="h-7 rounded-md border border-zinc-300 px-2 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40"
-                    disabled={index === lists.length - 1}
-                    onClick={() => onMoveTodoList(list.id, "down")}
-                    type="button"
-                  >
-                    Down
-                  </button>
-                </div>
               </li>
             );
           })}

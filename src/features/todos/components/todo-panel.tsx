@@ -20,7 +20,6 @@ type TodoPanelProps = {
   onItemSubmit?: (event: FormEvent<HTMLFormElement>) => void;
   onItemStatusFilterChange: (filter: TodoItemStatusFilter) => void;
   onItemTitleChange?: (title: string) => void;
-  onMoveTodoItem?: (itemId: string, direction: "down" | "up") => void;
   onReorderTodoItem?: (itemId: string, targetItemId: string) => void;
   onSetTodoDone?: (itemId: string, isDone: boolean) => void;
   onSetTodoItemTitle?: (itemId: string, title: string) => void;
@@ -43,7 +42,6 @@ export function TodoPanel({
   onItemSubmit,
   onItemStatusFilterChange,
   onItemTitleChange,
-  onMoveTodoItem,
   onReorderTodoItem,
   onSetTodoDone,
   onSetTodoItemTitle,
@@ -62,7 +60,6 @@ export function TodoPanel({
     !onItemSubmit ||
     !onItemStatusFilterChange ||
     !onItemTitleChange ||
-    !onMoveTodoItem ||
     !onReorderTodoItem ||
     !onSetTodoDone ||
     !onSetTodoItemTitle ||
@@ -86,7 +83,6 @@ export function TodoPanel({
   const deleteTodoList = onDeleteTodoList;
   const itemSubmit = onItemSubmit;
   const itemTitleChange = onItemTitleChange;
-  const moveTodoItem = onMoveTodoItem;
   const reorderTodoItem = onReorderTodoItem;
   const setTodoDone = onSetTodoDone;
   const setTodoItemTitle = onSetTodoItemTitle;
@@ -283,20 +279,11 @@ export function TodoPanel({
         <p className="mt-6 text-sm text-zinc-500">No matching todos.</p>
       ) : (
         <ul className="mt-6 divide-y divide-zinc-100">
-          {visibleItems.map((item) => {
-            const itemIndex = activeList.items.findIndex(
-              (listItem) => listItem.id === item.id,
-            );
-
-            return (
+          {visibleItems.map((item) => (
               <TodoItemRow
                 item={item}
                 key={item.id}
                 maxTitleLength={maxTitleLength}
-                moveDownDisabled={
-                  reorderIsDisabled || itemIndex === activeList.items.length - 1
-                }
-                moveUpDisabled={reorderIsDisabled || itemIndex === 0}
                 onDelete={() => deleteTodoItem(item.id)}
                 onDragEnd={clearItemDragState}
                 onDragLeave={() => {
@@ -307,8 +294,6 @@ export function TodoPanel({
                 onDragOver={(event) => handleItemDragOver(event, item.id)}
                 onDragStart={(event) => handleItemDragStart(event, item.id)}
                 onDrop={(event) => handleItemDrop(event, item.id)}
-                onMoveDown={() => moveTodoItem(item.id, "down")}
-                onMoveUp={() => moveTodoItem(item.id, "up")}
                 onRenameTitleInput={() => todoItemTitleInput(item.id)}
                 onSetDone={(isDone) => setTodoDone(item.id, isDone)}
                 onSetTitle={(title) => setTodoItemTitle(item.id, title)}
@@ -317,8 +302,7 @@ export function TodoPanel({
                 showDragOver={dragOverItemId === item.id}
                 showDragging={draggedItemId === item.id}
               />
-            );
-          })}
+          ))}
         </ul>
       )}
     </section>
