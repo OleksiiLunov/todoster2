@@ -8,6 +8,7 @@ import {
   type TodoItemStatusFilter,
 } from "@/features/todos/components/todo-panel";
 import { TodoTrashPanel } from "@/features/todos/components/todo-trash-panel";
+import { TODO_LOCAL_STATE_CLEARED_EVENT } from "@/lib/todos/browser-local-state";
 import {
   TODO_SNAPSHOT_STORAGE_KEY,
   TODO_TRASH_SNAPSHOT_STORAGE_KEY,
@@ -180,6 +181,42 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
   const isDispatchingQueue = useRef(false);
   const lastWrittenSnapshotJson = useRef("");
   const lastWrittenTrashSnapshotJson = useRef("");
+
+  useEffect(() => {
+    function handleTodoLocalStateCleared() {
+      const bootstrappedAt = new Date().toISOString();
+
+      isDispatchingQueue.current = false;
+      lastWrittenSnapshotJson.current = "";
+      lastWrittenTrashSnapshotJson.current = "";
+      setIsInitialized(false);
+      setSnapshot({
+        userId: "",
+        bootstrappedAt,
+        lists: [],
+      });
+      setTrash({
+        userId: "",
+        bootstrappedAt,
+        lists: [],
+        items: [],
+      });
+      setSyncError("");
+      setSelectedListId(null);
+    }
+
+    window.addEventListener(
+      TODO_LOCAL_STATE_CLEARED_EVENT,
+      handleTodoLocalStateCleared,
+    );
+
+    return () => {
+      window.removeEventListener(
+        TODO_LOCAL_STATE_CLEARED_EVENT,
+        handleTodoLocalStateCleared,
+      );
+    };
+  }, []);
 
   useEffect(() => {
     const now = Date.now();
