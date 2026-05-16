@@ -1,7 +1,12 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { TEMP_USER_ID } from "@/lib/todos/types";
+import { getServerUser } from "@/lib/auth/server-user";
+
+async function getAuthenticatedUserId() {
+  const user = await getServerUser();
+  return user?.id ?? null;
+}
 
 const MAX_TODO_TITLE_LENGTH = 120;
 
@@ -174,12 +179,22 @@ function persistenceError(): PersistenceResult {
   return { error: "Could not save changes. Please try again.", ok: false };
 }
 
+function authenticationError(): PersistenceResult {
+  return { error: "You must be signed in.", ok: false };
+}
+
 export async function createTodoList(
   input: CreateTodoListInput,
 ): Promise<PersistenceResult> {
   const idError = validateId(input.id, "List id");
   if (idError) {
     return validationError(idError);
+  }
+
+  const userId = await getAuthenticatedUserId();
+
+  if (!userId) {
+    return authenticationError();
   }
 
   const titleValidation = validateTitle(input.title);
@@ -192,13 +207,15 @@ export async function createTodoList(
     return validationError(positionError);
   }
 
+
+
   try {
     const existingList = await prisma.todoList.findUnique({
       select: { userId: true },
       where: { id: input.id },
     });
 
-    if (existingList && existingList.userId !== TEMP_USER_ID) {
+    if (existingList && existingList.userId !== userId) {
       return validationError("List was not found.");
     }
 
@@ -208,7 +225,7 @@ export async function createTodoList(
         deletedAt: null,
         position: input.position,
         title: titleValidation.title,
-        userId: TEMP_USER_ID,
+        userId: userId,
       },
       update: {
         deletedAt: null,
@@ -232,6 +249,12 @@ export async function createTodoItem(
     return validationError(idError);
   }
 
+  const userId = await getAuthenticatedUserId();
+
+  if (!userId) {
+    return authenticationError();
+  }
+
   const listIdError = validateId(input.listId, "List id");
   if (listIdError) {
     return validationError(listIdError);
@@ -253,7 +276,7 @@ export async function createTodoItem(
       where: {
         deletedAt: null,
         id: input.listId,
-        userId: TEMP_USER_ID,
+        userId: userId,
       },
     });
 
@@ -266,7 +289,7 @@ export async function createTodoItem(
       where: {
         id: input.id,
         list: {
-          userId: TEMP_USER_ID,
+          userId: userId,
         },
       },
     });
@@ -309,6 +332,12 @@ export async function setTodoItemDone(
     return validationError(idError);
   }
 
+  const userId = await getAuthenticatedUserId();
+
+  if (!userId) {
+    return authenticationError();
+  }
+
   if (typeof input.isDone !== "boolean") {
     return validationError("Todo done state must be a boolean.");
   }
@@ -323,7 +352,7 @@ export async function setTodoItemDone(
         id: input.id,
         list: {
           deletedAt: null,
-          userId: TEMP_USER_ID,
+          userId: userId,
         },
       },
     });
@@ -342,6 +371,12 @@ export async function setTodoItemsDone(
   const listIdError = validateId(input.listId, "List id");
   if (listIdError) {
     return validationError(listIdError);
+  }
+
+  const userId = await getAuthenticatedUserId();
+
+  if (!userId) {
+    return authenticationError();
   }
 
   const idsError = validateIds(input.ids, "Todo");
@@ -366,7 +401,7 @@ export async function setTodoItemsDone(
         listId: input.listId,
         list: {
           deletedAt: null,
-          userId: TEMP_USER_ID,
+          userId: userId,
         },
       },
     });
@@ -387,6 +422,12 @@ export async function setTodoListTitle(
     return validationError(idError);
   }
 
+  const userId = await getAuthenticatedUserId();
+
+  if (!userId) {
+    return authenticationError();
+  }
+
   const titleValidation = validateTitle(input.title);
   if (titleValidation.error) {
     return validationError(titleValidation.error);
@@ -400,7 +441,7 @@ export async function setTodoListTitle(
       where: {
         deletedAt: null,
         id: input.id,
-        userId: TEMP_USER_ID,
+        userId: userId,
       },
     });
 
@@ -420,6 +461,12 @@ export async function setTodoItemTitle(
     return validationError(idError);
   }
 
+  const userId = await getAuthenticatedUserId();
+
+  if (!userId) {
+    return authenticationError();
+  }
+
   const titleValidation = validateTitle(input.title);
   if (titleValidation.error) {
     return validationError(titleValidation.error);
@@ -435,7 +482,7 @@ export async function setTodoItemTitle(
         id: input.id,
         list: {
           deletedAt: null,
-          userId: TEMP_USER_ID,
+          userId: userId,
         },
       },
     });
@@ -456,6 +503,12 @@ export async function deleteTodoList(
     return validationError(idError);
   }
 
+  const userId = await getAuthenticatedUserId();
+
+  if (!userId) {
+    return authenticationError();
+  }
+
   try {
     const deletedAt = new Date();
 
@@ -467,7 +520,7 @@ export async function deleteTodoList(
         where: {
           deletedAt: null,
           id: input.id,
-          userId: TEMP_USER_ID,
+          userId: userId,
         },
       }),
       prisma.todoItem.updateMany({
@@ -478,7 +531,7 @@ export async function deleteTodoList(
           deletedAt: null,
           listId: input.id,
           list: {
-            userId: TEMP_USER_ID,
+            userId: userId,
           },
         },
       }),
@@ -498,6 +551,12 @@ export async function deleteTodoItem(
     return validationError(idError);
   }
 
+  const userId = await getAuthenticatedUserId();
+
+  if (!userId) {
+    return authenticationError();
+  }
+
   try {
     await prisma.todoItem.updateMany({
       data: {
@@ -508,7 +567,7 @@ export async function deleteTodoItem(
         id: input.id,
         list: {
           deletedAt: null,
-          userId: TEMP_USER_ID,
+          userId: userId,
         },
       },
     });
@@ -527,6 +586,12 @@ export async function permanentlyDeleteTodoList(
     return validationError(idError);
   }
 
+  const userId = await getAuthenticatedUserId();
+
+  if (!userId) {
+    return authenticationError();
+  }
+
   try {
     await prisma.todoList.deleteMany({
       where: {
@@ -534,7 +599,7 @@ export async function permanentlyDeleteTodoList(
           not: null,
         },
         id: input.id,
-        userId: TEMP_USER_ID,
+        userId: userId,
       },
     });
 
@@ -552,6 +617,12 @@ export async function permanentlyDeleteTodoItem(
     return validationError(idError);
   }
 
+  const userId = await getAuthenticatedUserId();
+
+  if (!userId) {
+    return authenticationError();
+  }
+
   try {
     await prisma.todoItem.deleteMany({
       where: {
@@ -560,7 +631,7 @@ export async function permanentlyDeleteTodoItem(
         },
         id: input.id,
         list: {
-          userId: TEMP_USER_ID,
+          userId: userId,
         },
       },
     });
@@ -579,6 +650,12 @@ export async function setTodoListPositions(
     return validationError(positionsError);
   }
 
+  const userId = await getAuthenticatedUserId();
+
+  if (!userId) {
+    return authenticationError();
+  }
+
   try {
     await prisma.$transaction(
       input.lists.map((list) =>
@@ -589,7 +666,7 @@ export async function setTodoListPositions(
           where: {
             deletedAt: null,
             id: list.id,
-            userId: TEMP_USER_ID,
+            userId: userId,
           },
         }),
       ),
@@ -607,6 +684,12 @@ export async function setTodoItemPositions(
   const listIdError = validateId(input.listId, "List id");
   if (listIdError) {
     return validationError(listIdError);
+  }
+
+  const userId = await getAuthenticatedUserId();
+
+  if (!userId) {
+    return authenticationError();
   }
 
   const positionsError = validatePositions(input.items, "Todo");
@@ -627,7 +710,7 @@ export async function setTodoItemPositions(
             listId: input.listId,
             list: {
               deletedAt: null,
-              userId: TEMP_USER_ID,
+              userId: userId,
             },
           },
         }),

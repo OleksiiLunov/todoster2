@@ -1,12 +1,29 @@
 import { prisma } from "@/lib/prisma";
-import { TEMP_USER_ID, type TodoBootstrap } from "@/lib/todos/types";
+import {TodoBootstrap} from "@/lib/todos/types";
+import { getServerUser } from "@/lib/auth/server-user";
 
 export async function loadTodoBootstrap(): Promise<TodoBootstrap> {
   const bootstrappedAt = new Date().toISOString();
+  const user = await getServerUser();
+  if (!user) {
+    return {
+      snapshot: {
+        userId: "",
+        bootstrappedAt,
+        lists: [],
+      },
+      trash: {
+        userId: "",
+        bootstrappedAt,
+        lists: [],
+        items: [],
+      }
+    }
+  }
   const lists = await prisma.todoList.findMany({
     where: {
       deletedAt: null,
-      userId: TEMP_USER_ID,
+      userId: user.id,
     },
     orderBy: [{ position: "asc" }, { createdAt: "asc" }],
     include: {
@@ -23,7 +40,7 @@ export async function loadTodoBootstrap(): Promise<TodoBootstrap> {
       deletedAt: {
         not: null,
       },
-      userId: TEMP_USER_ID,
+      userId: user.id,
     },
     orderBy: [{ deletedAt: "desc" }, { createdAt: "asc" }],
   });
@@ -33,7 +50,7 @@ export async function loadTodoBootstrap(): Promise<TodoBootstrap> {
         not: null,
       },
       list: {
-        userId: TEMP_USER_ID,
+        userId: user.id,
       },
     },
     orderBy: [{ deletedAt: "desc" }, { createdAt: "asc" }],
@@ -48,7 +65,7 @@ export async function loadTodoBootstrap(): Promise<TodoBootstrap> {
 
   return {
     snapshot: {
-      userId: TEMP_USER_ID,
+      userId: user.id,
       bootstrappedAt,
       lists: lists.map((list) => ({
         id: list.id,
@@ -67,7 +84,7 @@ export async function loadTodoBootstrap(): Promise<TodoBootstrap> {
       })),
     },
     trash: {
-      userId: TEMP_USER_ID,
+      userId: user.id,
       bootstrappedAt,
       lists: trashLists.map((list) => ({
         id: list.id,

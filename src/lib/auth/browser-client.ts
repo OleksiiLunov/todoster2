@@ -1,19 +1,17 @@
 "use client";
 
-import { createClient } from "@supabase/supabase-js";
-import type { SupabaseClient } from "@supabase/supabase-js";
+//import { createClient } from "@supabase/supabase-js";
+//import type { SupabaseClient } from "@supabase/supabase-js";
 
-let supabaseBrowserClient:SupabaseClient | null = null;
+import {createBrowserClient } from "@supabase/ssr";
+
+
 
 export function getSupabaseBrowserClient() {
-    if (!supabaseBrowserClient) {
-        supabaseBrowserClient = createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
-        );
-    }
-
-    return supabaseBrowserClient;
+  return createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
+  )
 }
 
 // async function signUpNewUser(email: string, password: string, name: string) {

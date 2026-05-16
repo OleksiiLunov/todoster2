@@ -1,4 +1,6 @@
-export const TEMP_USER_ID = "test-user";
+//already replaced
+//export const TEMP_USER_ID = "test-user";
+
 
 export type TodoItemSnapshot = {
   id: string;
