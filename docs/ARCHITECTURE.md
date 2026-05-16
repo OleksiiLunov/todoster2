@@ -401,19 +401,9 @@ Forbidden responsibilities:
 
 ---
 
-## Temporary assumptions
 
-Authentication does not exist yet.
+Authentication was already implemented.
 
-Temporary user:
-
-```ts
-export const TEMP_USER_ID = "test-user";
-```
-
-All reads and writes are scoped to this temporary identity.
-
----
 
 ## Current stack
 
