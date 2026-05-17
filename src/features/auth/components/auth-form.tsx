@@ -109,10 +109,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
                     <label className="block text-red-500 font-bold mb-2">
                         {errorMessage !== "" && errorMessage}
                     </label>
-                </div>
-                <div>Name: {name}</div>
-                <div>Email: {email}</div>
-                <div>Password: {password}</div>
+                </div>                
             </div>
         </div>
     );
