@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { useAuth } from "@/features/auth/use-auth";
 import { use } from "react";
+import AuthForm, {} from "@/features/auth/components/auth-form"
 
 
 export default function Page() {
@@ -42,9 +43,14 @@ export default function Page() {
         }
     }
 
-
     return (
+        <AuthForm mode="login" />
+    );
+    
+    /*return (
         <div>
+            <div><h1>AUTH FORM!!</h1></div>
+            <div> ------- <AuthForm mode="login" /> ------ </div>
             <div><h1>UseAuth test: {                
                 useAuth().isLoadingAuth? "Loading auth...": useAuth().currentUser?.email || "Not logged in"
             }</h1></div>
@@ -75,5 +81,5 @@ export default function Page() {
                 disabled={loading}
                 onClick={() => onLogOut()}>Logout</button></div>
         </div>
-    )
+    )*/
 }

@@ -1,7 +1,7 @@
 "use client";
 import { signUpWithEmail } from "../../lib/auth/auth-service";
 import { useState } from "react";
-
+import AuthForm, {} from "@/features/auth/components/auth-form"
 
 export default function Page() {
     const [name, setName] = useState("");
@@ -27,7 +27,13 @@ export default function Page() {
     }
 
     return (
+            <AuthForm mode="signup" />
+        );
+
+    /*return (
         <div>
+            <div><h1>AUTH FORM!!</h1></div>
+            <div> ------- <AuthForm mode="signup" /> ------ </div>
             <div><h1>Signup</h1></div>
             <div><form onSubmit={onSubmit}>
                 <div><input
@@ -55,5 +61,5 @@ export default function Page() {
             </form></div>
             <div>Result: {result}</div>
         </div>
-    )
+    )*/
 }
