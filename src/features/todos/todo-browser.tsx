@@ -58,6 +58,8 @@ import type {
   TodoTrashSnapshot,
 } from "@/lib/todos/types";
 
+import { signOut } from "@/lib/auth/auth-service";
+
 export const MAX_TODO_TITLE_LENGTH = 120;
 
 type PersistenceResult = {
@@ -995,18 +997,30 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
     persistTodoItemPositions(nextSnapshot, listId, now);
   }
 
+
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-8 px-6 py-10 sm:px-10">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <TodoHeader listCount={snapshot.lists.length} todoCount={totalItems} />
+        <div>
+        <button          
+          className="h-10 self-start rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50 sm:self-auto"          
+          type="button"
+          onClick={() => signOut()}
+        >
+          Log out
+        </button>
+        </div>
+        <div>
         <button
           aria-expanded={isTrashVisible}
           className="h-10 self-start rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50 sm:self-auto"
           onClick={() => setIsTrashVisible((isVisible) => !isVisible)}
           type="button"
-        >
+        >          
           {isTrashVisible ? "Hide Trash" : `Show Trash (${trashItemCount})`}
         </button>
+        </div>
       </div>
 
       {syncError ? (
