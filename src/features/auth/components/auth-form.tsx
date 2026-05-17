@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { signInWithEmail, signUpWithEmail } from "@/lib/auth/auth-service";
 import { useRouter } from 'next/navigation'
+import Link from "next/link";
 
 
 type AuthFormProps = {
@@ -21,7 +22,7 @@ export default function AuthForm({ mode }: AuthFormProps) {
     async function onSubmit(e: React.SubmitEvent<HTMLFormElement>) {
         e.preventDefault();
         setErrorMessage("");
-        setIsSubmitting(true);        
+        setIsSubmitting(true);
 
         if (mode === "login") {
             const result = await signInWithEmail(
@@ -109,7 +110,33 @@ export default function AuthForm({ mode }: AuthFormProps) {
                     <label className="block text-red-500 font-bold mb-2">
                         {errorMessage !== "" && errorMessage}
                     </label>
-                </div>                
+                </div>
+            </div>
+            <div className="py-4 px-6">
+                <div className="mb-4">
+                    
+                        {mode === "signup" ?
+                            (
+                                <label className="block text-grey-700 mb-2">Already have an account? 
+                                <Link
+                                    className="ml-1 text-sm font-medium text-blue-700 underline underline-offset-2 transition hover:text-blue-900"
+                                    href="/login"
+                                >
+                                    Login page
+                                </Link></label>
+                            ) :
+                            (
+                                <label className="block text-grey-700 mb-2">Don't have an account yet? 
+                                <Link
+                                    className="ml-1 text-sm font-medium text-blue-700 underline underline-offset-2 transition hover:text-blue-900"
+                                    href="/signup"
+                                >
+                                    Signup page
+                                </Link></label>
+                            )
+                        }
+                    
+                </div>
             </div>
         </div>
     );
