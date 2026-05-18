@@ -1002,19 +1002,17 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
     <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-8 px-6 py-10 sm:px-10">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <TodoHeader listCount={snapshot.lists.length} todoCount={totalItems} />
-        <div>
+        <div className="flex flex-row sm:flex-col justify-items-end space-y-4 w-full sm:w-max">
         <button          
-          className="h-10 self-start rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50 sm:self-auto"          
+          className="h-10 self-start rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50 sm:self-auto w-full"          
           type="button"
           onClick={() => signOut()}
         >
           Log out
-        </button>
-        </div>
-        <div>
+        </button>        
         <button
           aria-expanded={isTrashVisible}
-          className="h-10 self-start rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50 sm:self-auto"
+          className="h-10 self-start rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50 sm:self-auto w-full"
           onClick={() => setIsTrashVisible((isVisible) => !isVisible)}
           type="button"
         >          
