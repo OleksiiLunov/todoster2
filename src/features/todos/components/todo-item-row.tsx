@@ -1,7 +1,9 @@
 "use client";
 
-import type { DragEvent } from "react";
+import { type DragEvent, type SubmitEvent, useState } from "react";
 import type { TodoItemSnapshot } from "@/lib/todos/types";
+
+
 
 type TodoItemRowProps = {
   item: TodoItemSnapshot;
@@ -38,11 +40,21 @@ export function TodoItemRow({
   showDragOver,
   showDragging,
 }: TodoItemRowProps) {
+  const [editing, setEditing] = useState<boolean>(false);
+
+  function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (editing) {
+      const formData = new FormData(event.currentTarget);
+      onSetTitle(String(formData.get("title") ?? ""));      
+    }
+    setEditing(!editing);
+  }
+
   return (
     <li
-      className={`flex items-start gap-3 rounded-md py-3 transition ${
-        showDragOver ? "bg-zinc-100 ring-2 ring-zinc-300" : ""
-      } ${showDragging ? "opacity-60" : ""}`}
+      className={`flex items-start gap-3 rounded-md py-3 transition ${showDragOver ? "bg-zinc-100 ring-2 ring-zinc-300" : ""
+        } ${showDragging ? "opacity-60" : ""}`}
       onDragLeave={onDragLeave}
       onDragOver={onDragOver}
       onDrop={onDrop}
@@ -50,11 +62,10 @@ export function TodoItemRow({
       <button
         aria-disabled={reorderDisabled}
         aria-label={`Drag ${item.title}`}
-        className={`mt-0.5 flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border border-zinc-300 text-sm font-semibold text-zinc-500 ${
-          reorderDisabled
-            ? "cursor-not-allowed opacity-40"
-            : "cursor-grab active:cursor-grabbing"
-        }`}
+        className={`mt-0.5 flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border border-zinc-300 text-sm font-semibold text-zinc-500 ${reorderDisabled
+          ? "cursor-not-allowed opacity-40"
+          : "cursor-grab active:cursor-grabbing"
+          }`}
         draggable={!reorderDisabled}
         onDragEnd={onDragEnd}
         onDragStart={onDragStart}
@@ -78,27 +89,29 @@ export function TodoItemRow({
       <form
         className="min-w-0 flex-1"
         onSubmit={(event) => {
-          event.preventDefault();
-          const formData = new FormData(event.currentTarget);
-          onSetTitle(String(formData.get("title") ?? ""));
+          handleSubmit(event);
         }}
       >
         <div className="flex flex-col gap-2 sm:flex-row">
           <input
-            className={`h-9 min-w-0 flex-1 rounded-md border border-zinc-300 px-3 text-sm outline-none transition focus:border-zinc-900 ${
-              item.isDone ? "text-zinc-500 line-through" : "text-zinc-800"
-            }`}
+            className={`h-9 min-w-0 flex-1 rounded-md border border-zinc-300 px-3 text-sm outline-none transition focus:border-zinc-900 ${item.isDone ? "text-zinc-500 line-through" : "text-zinc-800"
+              }`}
             defaultValue={item.title}
             key={item.updatedAt}
             maxLength={maxTitleLength}
             name="title"
             onChange={onRenameTitleInput}
+            hidden={!editing}
           />
+          <p hidden={editing}
+            className={`pt-2 h-9 min-w-0 flex-1 rounded-md border border-zinc-300 px-3 text-sm outline-none transition focus:border-zinc-900 ${item.isDone ? "text-zinc-500 line-through" : "text-zinc-800"
+              }`}
+          >{item.title}</p>
           <button
             className="h-9 rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50"
             type="submit"
           >
-            Rename
+            {editing ? "Save" : "Edit"}
           </button>
           <button
             className="h-9 rounded-md border border-red-200 px-3 text-sm font-medium text-red-700 transition hover:bg-red-50"
