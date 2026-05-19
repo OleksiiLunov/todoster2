@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type DragEvent, type FormEvent } from "react";
+import { useState, type DragEvent, type FormEvent, type SubmitEvent } from "react";
 import { CreateItemForm } from "@/features/todos/components/create-item-form";
 import { TodoItemRow } from "@/features/todos/components/todo-item-row";
 import type { TodoListSnapshot } from "@/lib/todos/types";
@@ -52,6 +52,16 @@ export function TodoPanel({
 }: TodoPanelProps) {
   const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
   const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
+  const [listNameEditing, setListNameEditing] = useState<boolean>(false);
+
+  function handleListNameEditingSubmit(event: SubmitEvent<HTMLFormElement>) {
+    event.preventDefault();             
+    if (listNameEditing) {
+       const formData = new FormData(event.currentTarget);
+       setTodoListTitle(String(formData.get("title") ?? ""));   
+    }
+    setListNameEditing(!listNameEditing);
+  }
 
   if (
     !list ||
@@ -191,11 +201,7 @@ export function TodoPanel({
         <div className="min-w-0 flex-1">
           <form
             className="flex flex-col gap-2 sm:flex-row"
-            onSubmit={(event) => {
-              event.preventDefault();
-              const formData = new FormData(event.currentTarget);
-              setTodoListTitle(String(formData.get("title") ?? ""));
-            }}
+            onSubmit={(event) => handleListNameEditingSubmit(event)}
           >
             <input
               className="h-10 min-w-0 flex-1 rounded-md border border-zinc-300 px-3 text-base font-semibold text-zinc-950 outline-none transition focus:border-zinc-900"
@@ -204,12 +210,19 @@ export function TodoPanel({
               maxLength={maxTitleLength}
               name="title"
               onChange={todoListTitleInput}
+              hidden={!listNameEditing}
             />
+            <p
+              className="pt-2 h-10 min-w-0 flex-1 rounded-md border border-zinc-300 px-3 text-base font-semibold text-zinc-950 outline-none transition focus:border-zinc-900"
+              hidden={listNameEditing}
+            >
+              {activeList.title}
+            </p>
             <button
               className="h-10 rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50"
               type="submit"
             >
-              Rename
+              {listNameEditing ? "Save" : "Rename"}
             </button>
             <button
               className="h-10 rounded-md border border-red-200 px-3 text-sm font-medium text-red-700 transition hover:bg-red-50"
@@ -245,11 +258,10 @@ export function TodoPanel({
             return (
               <button
                 aria-pressed={isSelected}
-                className={`h-9 rounded-md border px-3 text-sm font-medium transition ${
-                  isSelected
+                className={`h-9 rounded-md border px-3 text-sm font-medium transition ${isSelected
                     ? "border-zinc-950 bg-zinc-950 text-white"
                     : "border-zinc-300 text-zinc-700 hover:bg-zinc-50"
-                }`}
+                  }`}
                 key={filter.value}
                 onClick={() => onItemStatusFilterChange(filter.value)}
                 type="button"
@@ -280,28 +292,28 @@ export function TodoPanel({
       ) : (
         <ul className="mt-6 divide-y divide-zinc-100">
           {visibleItems.map((item) => (
-              <TodoItemRow
-                item={item}
-                key={item.id}
-                maxTitleLength={maxTitleLength}
-                onDelete={() => deleteTodoItem(item.id)}
-                onDragEnd={clearItemDragState}
-                onDragLeave={() => {
-                  if (dragOverItemId === item.id) {
-                    setDragOverItemId(null);
-                  }
-                }}
-                onDragOver={(event) => handleItemDragOver(event, item.id)}
-                onDragStart={(event) => handleItemDragStart(event, item.id)}
-                onDrop={(event) => handleItemDrop(event, item.id)}
-                onRenameTitleInput={() => todoItemTitleInput(item.id)}
-                onSetDone={(isDone) => setTodoDone(item.id, isDone)}
-                onSetTitle={(title) => setTodoItemTitle(item.id, title)}
-                renameError={itemRenameErrors[item.id] ?? ""}
-                reorderDisabled={reorderIsDisabled}
-                showDragOver={dragOverItemId === item.id}
-                showDragging={draggedItemId === item.id}
-              />
+            <TodoItemRow
+              item={item}
+              key={item.id}
+              maxTitleLength={maxTitleLength}
+              onDelete={() => deleteTodoItem(item.id)}
+              onDragEnd={clearItemDragState}
+              onDragLeave={() => {
+                if (dragOverItemId === item.id) {
+                  setDragOverItemId(null);
+                }
+              }}
+              onDragOver={(event) => handleItemDragOver(event, item.id)}
+              onDragStart={(event) => handleItemDragStart(event, item.id)}
+              onDrop={(event) => handleItemDrop(event, item.id)}
+              onRenameTitleInput={() => todoItemTitleInput(item.id)}
+              onSetDone={(isDone) => setTodoDone(item.id, isDone)}
+              onSetTitle={(title) => setTodoItemTitle(item.id, title)}
+              renameError={itemRenameErrors[item.id] ?? ""}
+              reorderDisabled={reorderIsDisabled}
+              showDragOver={dragOverItemId === item.id}
+              showDragging={draggedItemId === item.id}
+            />
           ))}
         </ul>
       )}
