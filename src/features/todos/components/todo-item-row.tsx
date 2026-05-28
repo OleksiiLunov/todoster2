@@ -53,7 +53,7 @@ export function TodoItemRow({
 
   return (
     <li
-      className={`flex items-start gap-3 rounded-md py-3 transition ${showDragOver ? "bg-zinc-100 ring-2 ring-zinc-300" : ""
+      className={`flex items-start gap-3 rounded-md py-3 transition ${showDragOver ? "bg-[#f7efd9] ring-2 ring-[#c7d39a]" : ""
         } ${showDragging ? "opacity-60" : ""}`}
       onDragLeave={onDragLeave}
       onDragOver={onDragOver}
@@ -62,7 +62,7 @@ export function TodoItemRow({
       <button
         aria-disabled={reorderDisabled}
         aria-label={`Drag ${item.title}`}
-        className={`mt-0.5 flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border border-zinc-300 text-sm font-semibold text-zinc-500 ${reorderDisabled
+        className={`mt-0.5 flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border border-[#d7c8b3] text-sm font-semibold text-[#7b694f] ${reorderDisabled
           ? "cursor-not-allowed opacity-40"
           : "cursor-grab active:cursor-grabbing"
           }`}
@@ -82,7 +82,7 @@ export function TodoItemRow({
       <input
         aria-label={`Mark ${item.title} as ${item.isDone ? "not done" : "done"}`}
         checked={item.isDone}
-        className="mt-1 h-4 w-4 rounded border-zinc-300 text-zinc-950"
+        className="mt-1 h-4 w-4 rounded border-[#d7c8b3] text-[#173f2a]"
         onChange={(event) => onSetDone(event.target.checked)}
         type="checkbox"
       />
@@ -94,7 +94,7 @@ export function TodoItemRow({
       >
         <div className="flex flex-col gap-2 sm:flex-row">
           <input
-            className={`h-9 min-w-0 flex-1 rounded-md border border-zinc-300 px-3 text-sm outline-none transition focus:border-zinc-900 ${item.isDone ? "text-zinc-500 line-through" : "text-zinc-800"
+            className={`h-9 min-w-0 flex-1 rounded-md border border-[#d7c8b3] bg-white px-3 text-sm outline-none transition focus:border-[#173f2a] ${item.isDone ? "text-[#8a7b64] line-through" : "text-[#4d3a22]"
               }`}
             defaultValue={item.title}
             key={item.updatedAt}
@@ -104,11 +104,11 @@ export function TodoItemRow({
             hidden={!editing}
           />
           <p hidden={editing}
-            className={`pt-2 h-9 min-w-0 flex-1 rounded-md border border-zinc-300 px-3 text-sm outline-none transition focus:border-zinc-900 ${item.isDone ? "text-zinc-500 line-through" : "text-zinc-800"
+            className={`pt-2 h-9 min-w-0 flex-1 rounded-md border border-[#d7c8b3] bg-white px-3 text-sm outline-none transition focus:border-[#173f2a] ${item.isDone ? "text-[#8a7b64] line-through" : "text-[#4d3a22]"
               }`}
           >{item.title}</p>
           <button
-            className="h-9 rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50"
+            className="h-9 rounded-md border border-[#d7c8b3] bg-white px-3 text-sm font-medium text-[#4d3a22] transition hover:bg-[#f7efd9]"
             type="submit"
           >
             {editing ? "Save" : "Edit"}

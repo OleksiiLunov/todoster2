@@ -21,39 +21,39 @@ export function TodoTrashPanel({
   const isEmpty = trash.lists.length === 0 && trash.items.length === 0;
 
   return (
-    <aside className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between gap-3 border-b border-zinc-100 pb-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
+    <aside className="rounded-md border border-[#e6dccb] bg-[#fffdf7] p-4 shadow-sm shadow-[#7c4a24]/5">
+      <div className="flex items-center justify-between gap-3 border-b border-[#efe5d2] pb-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-[#7b694f]">
           Trash
         </h2>
-        <span className="text-sm font-medium text-zinc-500">
+        <span className="text-sm font-medium text-[#7b694f]">
           {trash.lists.length + trash.items.length}
         </span>
       </div>
 
       {isEmpty ? (
-        <p className="py-6 text-sm text-zinc-500">Trash is empty.</p>
+        <p className="py-6 text-sm text-[#7b694f]">Trash is empty.</p>
       ) : (
         <div className="mt-4 flex flex-col gap-6">
           <section>
-            <h3 className="text-sm font-semibold text-zinc-900">
+            <h3 className="text-sm font-semibold text-[#173f2a]">
               Deleted lists
             </h3>
             {trash.lists.length === 0 ? (
-              <p className="mt-2 text-sm text-zinc-500">No deleted lists.</p>
+              <p className="mt-2 text-sm text-[#7b694f]">No deleted lists.</p>
             ) : (
               <ul className="mt-3 flex flex-col gap-2">
                 {trash.lists.map((list) => (
                   <li
-                    className="rounded-md border border-zinc-200 p-3"
+                    className="rounded-md border border-[#e6dccb] bg-white p-3"
                     key={list.id}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-zinc-900">
+                        <p className="truncate text-sm font-medium text-[#173f2a]">
                           {list.title}
                         </p>
-                        <p className="mt-1 text-xs text-zinc-500">
+                        <p className="mt-1 text-xs text-[#7b694f]">
                           Deleted {formatDeletedAt(list.deletedAt)}
                         </p>
                       </div>
@@ -72,27 +72,27 @@ export function TodoTrashPanel({
           </section>
 
           <section>
-            <h3 className="text-sm font-semibold text-zinc-900">
+            <h3 className="text-sm font-semibold text-[#173f2a]">
               Deleted items
             </h3>
             {trash.items.length === 0 ? (
-              <p className="mt-2 text-sm text-zinc-500">No deleted items.</p>
+              <p className="mt-2 text-sm text-[#7b694f]">No deleted items.</p>
             ) : (
               <ul className="mt-3 flex flex-col gap-2">
                 {trash.items.map((item) => (
                   <li
-                    className="rounded-md border border-zinc-200 p-3"
+                    className="rounded-md border border-[#e6dccb] bg-white p-3"
                     key={item.id}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-zinc-900">
+                        <p className="truncate text-sm font-medium text-[#173f2a]">
                           {item.title}
                         </p>
-                        <p className="mt-1 truncate text-xs text-zinc-500">
+                        <p className="mt-1 truncate text-xs text-[#7b694f]">
                           {item.listTitle}
                         </p>
-                        <p className="mt-1 text-xs text-zinc-500">
+                        <p className="mt-1 text-xs text-[#7b694f]">
                           Deleted {formatDeletedAt(item.deletedAt)}
                         </p>
                       </div>

@@ -76,7 +76,7 @@ export function TodoListPanel({
   }
 
   return (
-    <aside className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
+    <aside className="rounded-md border border-[#e6dccb] bg-[#fffdf7] p-4 shadow-sm shadow-[#7c4a24]/5">
       <CreateListForm
         error={createListError}
         maxTitleLength={maxTitleLength}
@@ -85,21 +85,21 @@ export function TodoListPanel({
         title={createListTitle}
       />
 
-      <div className="flex items-center justify-between gap-3 border-b border-zinc-100 pb-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-500">
+      <div className="flex items-center justify-between gap-3 border-b border-[#efe5d2] pb-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-[#7b694f]">
           Lists
         </h2>
-        <span className="text-sm font-medium text-zinc-500">
+        <span className="text-sm font-medium text-[#7b694f]">
           {lists.length}
         </span>
       </div>
 
       {lists.length === 0 ? (
         <div className="py-10 text-center">
-          <h3 className="text-base font-medium text-zinc-950">
+          <h3 className="text-base font-medium text-[#173f2a]">
             No todo lists
           </h3>
-          <p className="mt-2 text-sm leading-6 text-zinc-600">
+          <p className="mt-2 text-sm leading-6 text-[#6f604d]">
             Create a list locally to start shaping this browser snapshot.
           </p>
         </div>
@@ -112,7 +112,7 @@ export function TodoListPanel({
               <li
                 className={`flex gap-2 rounded-md transition ${
                   dragOverListId === list.id
-                    ? "bg-zinc-100 ring-2 ring-zinc-300"
+                    ? "bg-[#f7efd9] ring-2 ring-[#c7d39a]"
                     : ""
                 } ${draggedListId === list.id ? "opacity-60" : ""}`}
                 key={list.id}
@@ -126,7 +126,7 @@ export function TodoListPanel({
               >
                 <button
                   aria-label={`Drag ${list.title}`}
-                  className="flex w-8 cursor-grab select-none items-center justify-center rounded-md border border-zinc-300 text-sm font-semibold text-zinc-500 active:cursor-grabbing"
+                  className="flex w-8 cursor-grab select-none items-center justify-center rounded-md border border-[#d7c8b3] text-sm font-semibold text-[#7b694f] active:cursor-grabbing"
                   draggable
                   onDragEnd={clearDragState}
                   onDragStart={(event) => handleDragStart(event, list.id)}
@@ -139,8 +139,8 @@ export function TodoListPanel({
                   aria-current={isSelected ? "true" : undefined}
                   className={`flex min-w-0 flex-1 items-center justify-between gap-3 rounded-md border px-3 py-3 text-left transition ${
                     isSelected
-                      ? "border-zinc-950 bg-zinc-950 text-white"
-                      : "border-transparent text-zinc-800 hover:border-zinc-200 hover:bg-zinc-50"
+                      ? "border-[#173f2a] bg-[#173f2a] text-white"
+                      : "border-transparent text-[#4d3a22] hover:border-[#e6dccb] hover:bg-[#f7efd9]"
                   }`}
                   onClick={() => onSelectList(list.id)}
                   type="button"
@@ -150,7 +150,7 @@ export function TodoListPanel({
                   </span>
                   <span
                     className={`shrink-0 text-xs ${
-                      isSelected ? "text-zinc-200" : "text-zinc-500"
+                      isSelected ? "text-[#e9f0c6]" : "text-[#7b694f]"
                     }`}
                   >
                     {list.items.length}

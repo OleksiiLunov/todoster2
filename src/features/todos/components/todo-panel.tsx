@@ -79,9 +79,9 @@ export function TodoPanel({
     !onUncheckAllItems
   ) {
     return (
-      <section className="rounded-md border border-dashed border-zinc-300 bg-zinc-50 p-8 text-center">
-        <h2 className="text-lg font-medium text-zinc-950">No list selected</h2>
-        <p className="mt-2 text-sm text-zinc-600">
+      <section className="rounded-md border border-dashed border-[#d7c8b3] bg-[#fffdf7] p-8 text-center shadow-sm shadow-[#7c4a24]/5">
+        <h2 className="text-lg font-medium text-[#173f2a]">No list selected</h2>
+        <p className="mt-2 text-sm text-[#6f604d]">
           Select a list on the left to view its todos.
         </p>
       </section>
@@ -196,15 +196,15 @@ export function TodoPanel({
   }
 
   return (
-    <section className="rounded-md border border-zinc-200 bg-white p-5 shadow-sm">
-      <div className="flex items-start justify-between gap-4 border-b border-zinc-100 pb-4">
+    <section className="rounded-md border border-[#e6dccb] bg-[#fffdf7] p-5 shadow-sm shadow-[#7c4a24]/5">
+      <div className="flex items-start justify-between gap-4 border-b border-[#efe5d2] pb-4">
         <div className="min-w-0 flex-1">
           <form
             className="flex flex-col gap-2 sm:flex-row"
             onSubmit={(event) => handleListNameEditingSubmit(event)}
           >
             <input
-              className="h-10 min-w-0 flex-1 rounded-md border border-zinc-300 px-3 text-base font-semibold text-zinc-950 outline-none transition focus:border-zinc-900"
+              className="h-10 min-w-0 flex-1 rounded-md border border-[#d7c8b3] bg-white px-3 text-base font-semibold text-[#173f2a] outline-none transition focus:border-[#173f2a]"
               defaultValue={activeList.title}
               key={activeList.updatedAt}
               maxLength={maxTitleLength}
@@ -213,13 +213,13 @@ export function TodoPanel({
               hidden={!listNameEditing}
             />
             <p
-              className="pt-2 h-10 min-w-0 flex-1 rounded-md border border-zinc-300 px-3 text-base font-semibold text-zinc-950 outline-none transition focus:border-zinc-900"
+              className="pt-2 h-10 min-w-0 flex-1 rounded-md border border-[#d7c8b3] bg-white px-3 text-base font-semibold text-[#173f2a] outline-none transition focus:border-[#173f2a]"
               hidden={listNameEditing}
             >
               {activeList.title}
             </p>
             <button
-              className="h-10 rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50"
+              className="h-10 rounded-md border border-[#d7c8b3] bg-white px-3 text-sm font-medium text-[#4d3a22] transition hover:bg-[#f7efd9]"
               type="submit"
             >
               {listNameEditing ? "Save" : "Rename"}
@@ -235,7 +235,7 @@ export function TodoPanel({
           {listRenameError ? (
             <p className="mt-2 text-sm text-red-600">{listRenameError}</p>
           ) : null}
-          <p className="mt-1 text-sm text-zinc-500">
+          <p className="mt-1 text-sm text-[#7b694f]">
             {activeList.items.length} todos
           </p>
         </div>
@@ -259,8 +259,8 @@ export function TodoPanel({
               <button
                 aria-pressed={isSelected}
                 className={`h-9 rounded-md border px-3 text-sm font-medium transition ${isSelected
-                    ? "border-zinc-950 bg-zinc-950 text-white"
-                    : "border-zinc-300 text-zinc-700 hover:bg-zinc-50"
+                    ? "border-[#173f2a] bg-[#173f2a] text-white"
+                    : "border-[#d7c8b3] bg-white text-[#4d3a22] hover:bg-[#f7efd9]"
                   }`}
                 key={filter.value}
                 onClick={() => onItemStatusFilterChange(filter.value)}
@@ -275,7 +275,7 @@ export function TodoPanel({
         {completedItemCount > 0 ? (
           <div className="flex justify-end">
             <button
-              className="h-9 rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-700 transition hover:bg-zinc-50"
+              className="h-9 rounded-md border border-[#d7c8b3] bg-white px-3 text-sm font-medium text-[#4d3a22] transition hover:bg-[#f7efd9]"
               onClick={uncheckAllItems}
               type="button"
             >
@@ -286,11 +286,11 @@ export function TodoPanel({
       </div>
 
       {activeList.items.length === 0 ? (
-        <p className="mt-6 text-sm text-zinc-500">No todos yet.</p>
+        <p className="mt-6 text-sm text-[#7b694f]">No todos yet.</p>
       ) : visibleItems.length === 0 ? (
-        <p className="mt-6 text-sm text-zinc-500">No matching todos.</p>
+        <p className="mt-6 text-sm text-[#7b694f]">No matching todos.</p>
       ) : (
-        <ul className="mt-6 divide-y divide-zinc-100">
+        <ul className="mt-6 divide-y divide-[#efe5d2]">
           {visibleItems.map((item) => (
             <TodoItemRow
               item={item}
