@@ -1000,9 +1000,9 @@ export function TodoBrowser({ bootstrap }: TodoBrowserProps) {
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-8 px-6 py-8 sm:px-10 sm:py-10">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-stretch sm:justify-between">
         <TodoHeader listCount={snapshot.lists.length} todoCount={totalItems} />
-        <div className="flex flex-row sm:flex-col justify-items-end space-y-4 w-full sm:w-max">
+        <div className="flex w-full flex-row gap-3 sm:w-36 sm:flex-col sm:justify-center">
         <button          
           className="h-10 self-start rounded-md border border-[#d7c8b3] bg-[#fffdf7] px-3 text-sm font-medium text-[#4d3a22] shadow-sm transition hover:bg-[#f7efd9] sm:self-auto w-full"          
           type="button"
